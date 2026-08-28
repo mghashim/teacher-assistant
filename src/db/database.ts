@@ -1,0 +1,50 @@
+import Dexie, { type Table } from "dexie";
+import type {
+  TeacherClass,
+  ClassSchedule,
+  Student,
+  Assessment,
+  Grade,
+  Homework,
+  Detention,
+  TeacherNote,
+  StoredFile,
+  Task,
+  AppSetting,
+} from "@/types/database";
+
+export class TeacherAssistantDB extends Dexie {
+  classes!: Table<TeacherClass, number>;
+  classSchedules!: Table<ClassSchedule, number>;
+  students!: Table<Student, number>;
+  assessments!: Table<Assessment, number>;
+  grades!: Table<Grade, number>;
+  homework!: Table<Homework, number>;
+  detentions!: Table<Detention, number>;
+  notes!: Table<TeacherNote, number>;
+  files!: Table<StoredFile, number>;
+  tasks!: Table<Task, number>;
+  settings!: Table<AppSetting, string>;
+
+  constructor() {
+    super("TeacherAssistantDB");
+
+    // Define schema version 1 with targeted indexing for fast queries and joins
+    this.version(1).stores({
+      classes: "++id, name, subject, academicYear, createdAt",
+      classSchedules: "++id, classId, dayOfWeek, startTime, endTime, [classId+dayOfWeek]",
+      students: "++id, classId, [classId+active], lastName, firstName, active, createdAt",
+      assessments: "++id, classId, type, assessmentDate, createdAt",
+      grades: "++id, assessmentId, studentId, [assessmentId+studentId], score, createdAt",
+      homework: "++id, studentId, classId, [studentId+approved], [classId+homeworkDate], homeworkDate, type, approved, createdAt",
+      detentions: "++id, studentId, classId, detentionDate, type, [studentId+detentionDate], createdAt",
+      notes: "++id, studentId, category, noteDate, [studentId+category], createdAt",
+      files: "++id, classId, studentId, name, mimeType, createdAt",
+      tasks: "++id, classId, studentId, dueDate, completed, [completed+dueDate], createdAt",
+      settings: "key",
+    });
+  }
+}
+
+// Global database singleton
+export const db = new TeacherAssistantDB();
