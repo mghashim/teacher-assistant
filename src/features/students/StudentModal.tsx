@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { Modal } from "@/components/ui/Modal";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Button } from "@/components/ui/Button";
 import { studentsRepository } from "@/db/repositories/students.repository";
+import { AlertCircle } from "lucide-react";
 import type { Student } from "@/types/database";
 
 interface StudentModalProps {
@@ -17,6 +18,8 @@ interface StudentModalProps {
   initialData?: Student | null;
   onSaved?: (studentId: number) => void;
 }
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function StudentModal({
   isOpen,
@@ -77,14 +80,42 @@ export function StudentModal({
     setError("");
   }, [initialData, defaultClassId, classes, isOpen]);
 
+  const emailError = useMemo(() => {
+    const trimmed = email.trim();
+    if (trimmed && !EMAIL_REGEX.test(trimmed)) {
+      return "Please enter a valid email address";
+    }
+    return "";
+  }, [email]);
+
+  const parentEmailError = useMemo(() => {
+    const trimmed = parentEmail.trim();
+    if (trimmed && !EMAIL_REGEX.test(trimmed)) {
+      return "Please enter a valid parent email address";
+    }
+    return "";
+  }, [parentEmail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      setError("First name and Last name are required.");
+    if (!firstName.trim()) {
+      setError("First name is required.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Last name is required.");
       return;
     }
     if (!classId) {
       setError("Please assign the student to a class.");
+      return;
+    }
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+    if (parentEmailError) {
+      setError(parentEmailError);
       return;
     }
 
@@ -143,8 +174,9 @@ export function StudentModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">
-            {error}
+          <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -178,7 +210,10 @@ export function StudentModal({
             label="First Name"
             placeholder="e.g. Zayd"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              setError("");
+            }}
             required
             autoFocus
           />
@@ -187,7 +222,10 @@ export function StudentModal({
             label="Last Name"
             placeholder="e.g. Al-Mansoor"
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              setError("");
+            }}
             required
           />
 
@@ -212,7 +250,11 @@ export function StudentModal({
             type="email"
             placeholder="student@school.edu"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            error={emailError || undefined}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError("");
+            }}
           />
 
           <Input
@@ -243,7 +285,11 @@ export function StudentModal({
               type="email"
               placeholder="parent@example.com"
               value={parentEmail}
-              onChange={(e) => setParentEmail(e.target.value)}
+              error={parentEmailError || undefined}
+              onChange={(e) => {
+                setParentEmail(e.target.value);
+                setError("");
+              }}
             />
 
             <Input
@@ -268,7 +314,11 @@ export function StudentModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={Boolean(emailError || parentEmailError) || isSubmitting}
+            isLoading={isSubmitting}
+          >
             {initialData ? "Save Changes" : "Enroll Student"}
           </Button>
         </div>

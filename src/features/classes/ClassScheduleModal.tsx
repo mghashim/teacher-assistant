@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { schedulesRepository } from "@/db/repositories/schedules.repository";
+import { AlertCircle } from "lucide-react";
 import type { ClassSchedule, DayOfWeek } from "@/types/database";
 
 const DAYS_OF_WEEK: Array<{ value: DayOfWeek; label: string }> = [
@@ -56,10 +57,21 @@ export function ClassScheduleModal({
     setError("");
   }, [initialData, isOpen]);
 
+  const timeError = useMemo(() => {
+    if (startTime && endTime && startTime >= endTime) {
+      return "End time must be later than start time.";
+    }
+    return "";
+  }, [startTime, endTime]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!startTime || !endTime) {
       setError("Start time and End time are required.");
+      return;
+    }
+    if (timeError) {
+      setError(timeError);
       return;
     }
 
@@ -104,8 +116,9 @@ export function ClassScheduleModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">
-            {error}
+          <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -122,7 +135,10 @@ export function ClassScheduleModal({
             label="Start Time"
             type="time"
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
+            onChange={(e) => {
+              setStartTime(e.target.value);
+              setError("");
+            }}
             required
           />
 
@@ -130,7 +146,11 @@ export function ClassScheduleModal({
             label="End Time"
             type="time"
             value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
+            error={timeError || undefined}
+            onChange={(e) => {
+              setEndTime(e.target.value);
+              setError("");
+            }}
             required
           />
         </div>
@@ -153,7 +173,11 @@ export function ClassScheduleModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={Boolean(timeError) || isSubmitting}
+            isLoading={isSubmitting}
+          >
             {initialData ? "Save Lesson" : "Add Lesson"}
           </Button>
         </div>

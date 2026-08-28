@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { Modal } from "@/components/ui/Modal";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Button } from "@/components/ui/Button";
 import { homeworkRepository } from "@/db/repositories/homework.repository";
+import { calculatePercentage } from "@/lib/calculations";
+import { AlertCircle } from "lucide-react";
 import type { Homework, HomeworkType } from "@/types/database";
 
 const HOMEWORK_TYPES: HomeworkType[] = [
@@ -64,7 +66,7 @@ export function HomeworkModal({
       setTitle(initialData.title);
       setHomeworkDate(initialData.homeworkDate);
       setMark(initialData.mark !== undefined ? String(initialData.mark) : "");
-      setMaxMark(initialData.maxMark !== undefined ? String(initialData.maxMark) : "");
+      setMaxMark(initialData.maxMark !== undefined ? String(initialData.maxMark) : "20");
       setApproved(initialData.approved);
       setNotes(initialData.notes || "");
     } else {
@@ -85,7 +87,39 @@ export function HomeworkModal({
     setError("");
   }, [initialData, defaultStudentId, defaultClassId, students, classes, isOpen]);
 
-  // When student changes, automatically infer their classId if not editing
+  // Validation
+  const maxMarkError = useMemo(() => {
+    const trimmed = maxMark.trim();
+    if (trimmed === "") return "";
+    const num = Number(trimmed);
+    if (isNaN(num)) return "Must be a valid number";
+    if (num <= 0) return "Max mark must be greater than 0";
+    return "";
+  }, [maxMark]);
+
+  const markError = useMemo(() => {
+    const trimmed = mark.trim();
+    if (trimmed === "") return "";
+    const num = Number(trimmed);
+    if (isNaN(num)) return "Must be a valid number";
+    if (num < 0) return "Mark cannot be negative";
+    
+    const parsedMax = Number(maxMark);
+    if (!isNaN(parsedMax) && parsedMax > 0 && num > parsedMax) {
+      return `Mark cannot exceed maximum mark (${parsedMax})`;
+    }
+    return "";
+  }, [mark, maxMark]);
+
+  const calculatedPct = useMemo(() => {
+    const numMark = Number(mark);
+    const numMax = Number(maxMark);
+    if (!isNaN(numMark) && !isNaN(numMax) && numMax > 0 && numMark >= 0 && numMark <= numMax) {
+      return calculatePercentage(numMark, numMax);
+    }
+    return null;
+  }, [mark, maxMark]);
+
   const handleStudentChange = (newStudentId: number) => {
     setStudentId(newStudentId);
     const targetStudent = students?.find((s) => s.id === newStudentId);
@@ -104,6 +138,14 @@ export function HomeworkModal({
       setError("Please select a student.");
       return;
     }
+    if (markError) {
+      setError(markError);
+      return;
+    }
+    if (maxMarkError) {
+      setError(maxMarkError);
+      return;
+    }
 
     const currentStudent = students?.find((s) => s.id === studentId);
     const finalClassId = classId || currentStudent?.classId || 0;
@@ -112,8 +154,8 @@ export function HomeworkModal({
     setError("");
 
     try {
-      const parsedMark = mark !== "" ? Number(mark) : undefined;
-      const parsedMaxMark = maxMark !== "" ? Number(maxMark) : undefined;
+      const parsedMark = mark.trim() !== "" ? Number(mark) : undefined;
+      const parsedMaxMark = maxMark.trim() !== "" ? Number(maxMark) : undefined;
 
       if (initialData && initialData.id) {
         await homeworkRepository.update(initialData.id, {
@@ -160,8 +202,9 @@ export function HomeworkModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">
-            {error}
+          <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -216,19 +259,38 @@ export function HomeworkModal({
           <Input
             label="Mark (Optional)"
             type="number"
+            min={0}
+            step="0.5"
             placeholder="e.g. 18"
             value={mark}
-            onChange={(e) => setMark(e.target.value)}
+            error={markError || undefined}
+            onChange={(e) => {
+              setMark(e.target.value);
+              setError("");
+            }}
           />
 
           <Input
-            label="Max Mark (Optional)"
+            label="Max Mark"
             type="number"
+            min={1}
+            step="1"
             placeholder="e.g. 20"
             value={maxMark}
-            onChange={(e) => setMaxMark(e.target.value)}
+            error={maxMarkError || undefined}
+            onChange={(e) => {
+              setMaxMark(e.target.value);
+              setError("");
+            }}
           />
         </div>
+
+        {calculatedPct !== null && !markError && !maxMarkError && (
+          <div className="text-[11px] text-muted-foreground bg-muted/40 p-2 rounded-lg flex items-center justify-between">
+            <span>Calculated Score Percentage:</span>
+            <strong className="text-foreground font-mono">{calculatedPct}%</strong>
+          </div>
+        )}
 
         <div className="p-3 rounded-lg bg-muted/40 border border-border">
           <Checkbox
@@ -251,7 +313,11 @@ export function HomeworkModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={Boolean(markError || maxMarkError) || isSubmitting}
+            isLoading={isSubmitting}
+          >
             {initialData ? "Save Homework" : "Record Homework"}
           </Button>
         </div>

@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { calculatePercentage, calculateStudentOverallAverage } from "@/lib/calculations";
 import { formatDate } from "@/lib/utils";
-import { Award, Plus, Edit2, Trash2 } from "lucide-react";
+import { Award, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
 import type { Student, Grade, Assessment } from "@/types/database";
 
 interface GradesTabProps {
@@ -22,7 +22,7 @@ export function GradesTab({ student }: GradesTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<number>(0);
-  const [score, setScore] = useState<number>(0);
+  const [scoreStr, setScoreStr] = useState<string>("0");
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -50,12 +50,36 @@ export function GradesTab({ student }: GradesTabProps) {
     return calculateStudentOverallAverage(studentGrades, assessmentsMap);
   }, [studentGrades, assessmentsMap]);
 
+  const currentSelectedAssessment = assessmentsMap.get(selectedAssessmentId);
+  const maxScore = currentSelectedAssessment?.maxScore ?? 100;
+
+  // Real-time score error
+  const scoreError = useMemo(() => {
+    const trimmed = scoreStr.trim();
+    if (trimmed === "") return "Score is required";
+    const num = Number(trimmed);
+    if (isNaN(num)) return "Score must be a valid number";
+    if (num < 0) return "Score cannot be negative";
+    if (currentSelectedAssessment && num > currentSelectedAssessment.maxScore) {
+      return `Score cannot exceed maximum mark of ${currentSelectedAssessment.maxScore}`;
+    }
+    return "";
+  }, [scoreStr, currentSelectedAssessment]);
+
+  const calculatedPct = useMemo(() => {
+    const num = Number(scoreStr);
+    if (!isNaN(num) && num >= 0 && maxScore > 0) {
+      return calculatePercentage(num, maxScore);
+    }
+    return null;
+  }, [scoreStr, maxScore]);
+
   const handleOpenAdd = () => {
     setEditingGrade(null);
     if (assessments && assessments.length > 0) {
       setSelectedAssessmentId(assessments[0].id!);
     }
-    setScore(0);
+    setScoreStr("0");
     setFeedback("");
     setError("");
     setIsModalOpen(true);
@@ -64,7 +88,7 @@ export function GradesTab({ student }: GradesTabProps) {
   const handleOpenEdit = (grade: Grade) => {
     setEditingGrade(grade);
     setSelectedAssessmentId(grade.assessmentId);
-    setScore(grade.score);
+    setScoreStr(String(grade.score));
     setFeedback(grade.feedback || "");
     setError("");
     setIsModalOpen(true);
@@ -83,12 +107,12 @@ export function GradesTab({ student }: GradesTabProps) {
       return;
     }
 
-    const currentAssessment = assessmentsMap.get(selectedAssessmentId);
-    if (currentAssessment && score > currentAssessment.maxScore) {
-      setError(`Score cannot exceed max score of ${currentAssessment.maxScore}.`);
+    if (scoreError) {
+      setError(scoreError);
       return;
     }
 
+    const numScore = Number(scoreStr);
     setIsSubmitting(true);
     setError("");
 
@@ -96,7 +120,7 @@ export function GradesTab({ student }: GradesTabProps) {
       await gradesRepository.upsertGrade({
         assessmentId: selectedAssessmentId,
         studentId: student.id!,
-        score,
+        score: numScore,
         feedback: feedback.trim() || undefined,
       });
       setIsModalOpen(false);
@@ -157,8 +181,8 @@ export function GradesTab({ student }: GradesTabProps) {
               <tbody className="divide-y divide-border">
                 {studentGrades.map((grade) => {
                   const assessment = assessmentsMap.get(grade.assessmentId);
-                  const maxScore = assessment?.maxScore ?? 100;
-                  const pct = calculatePercentage(grade.score, maxScore);
+                  const aMaxScore = assessment?.maxScore ?? 100;
+                  const pct = calculatePercentage(grade.score, aMaxScore);
 
                   return (
                     <tr key={grade.id} className="hover:bg-muted/30 transition-colors">
@@ -174,7 +198,7 @@ export function GradesTab({ student }: GradesTabProps) {
                         {formatDate(assessment?.assessmentDate)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-medium">
-                        {grade.score} / {maxScore}
+                        {grade.score} / {aMaxScore}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span
@@ -229,8 +253,9 @@ export function GradesTab({ student }: GradesTabProps) {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">
-              {error}
+            <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -249,16 +274,28 @@ export function GradesTab({ student }: GradesTabProps) {
             ))}
           </Select>
 
-          <Input
-            label={`Score (Max: ${assessmentsMap.get(selectedAssessmentId)?.maxScore ?? "?"})`}
-            type="number"
-            min={0}
-            max={assessmentsMap.get(selectedAssessmentId)?.maxScore ?? 100}
-            step="0.5"
-            value={score}
-            onChange={(e) => setScore(Number(e.target.value))}
-            required
-          />
+          <div className="space-y-1">
+            <Input
+              label={`Score (Maximum: ${maxScore})`}
+              type="number"
+              min={0}
+              max={maxScore}
+              step="0.5"
+              value={scoreStr}
+              error={scoreError || undefined}
+              onChange={(e) => {
+                setScoreStr(e.target.value);
+                setError("");
+              }}
+              required
+            />
+
+            {calculatedPct !== null && !scoreError && (
+              <div className="text-[11px] text-muted-foreground pt-0.5">
+                Calculated result: <strong className="text-foreground">{calculatedPct}%</strong>
+              </div>
+            )}
+          </div>
 
           <Textarea
             label="Teacher Feedback Notes (Optional)"
@@ -277,7 +314,11 @@ export function GradesTab({ student }: GradesTabProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" isLoading={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={Boolean(scoreError) || isSubmitting}
+              isLoading={isSubmitting}
+            >
               {editingGrade ? "Update Grade" : "Save Grade"}
             </Button>
           </div>

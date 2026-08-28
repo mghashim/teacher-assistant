@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { Modal } from "@/components/ui/Modal";
@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { assessmentsRepository } from "@/db/repositories/assessments.repository";
+import { AlertCircle } from "lucide-react";
 import type { Assessment, AssessmentType } from "@/types/database";
 
 const ASSESSMENT_TYPES: Array<{ value: AssessmentType; label: string }> = [
@@ -43,7 +44,7 @@ export function AssessmentModal({
   const [classId, setClassId] = useState<number>(defaultClassId || 0);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<AssessmentType>("speaking");
-  const [maxScore, setMaxScore] = useState<number>(30);
+  const [maxScoreStr, setMaxScoreStr] = useState<string>("30");
   const [assessmentDate, setAssessmentDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -57,7 +58,7 @@ export function AssessmentModal({
       setClassId(initialData.classId);
       setTitle(initialData.title);
       setType(initialData.type);
-      setMaxScore(initialData.maxScore);
+      setMaxScoreStr(String(initialData.maxScore));
       setAssessmentDate(initialData.assessmentDate || new Date().toISOString().split("T")[0]);
       setDescription(initialData.description || "");
       setNotes(initialData.notes || "");
@@ -67,13 +68,22 @@ export function AssessmentModal({
 
       setTitle("");
       setType("speaking");
-      setMaxScore(30);
+      setMaxScoreStr("30");
       setAssessmentDate(new Date().toISOString().split("T")[0]);
       setDescription("");
       setNotes("");
     }
     setError("");
   }, [initialData, defaultClassId, classes, isOpen]);
+
+  const maxScoreError = useMemo(() => {
+    const trimmed = maxScoreStr.trim();
+    if (trimmed === "") return "Maximum score is required";
+    const num = Number(trimmed);
+    if (isNaN(num)) return "Maximum score must be a valid number";
+    if (num <= 0) return "Maximum score must be greater than 0";
+    return "";
+  }, [maxScoreStr]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,14 +92,15 @@ export function AssessmentModal({
       return;
     }
     if (!classId) {
-      setError("Please select a class.");
+      setError("Please select an assigned class.");
       return;
     }
-    if (maxScore <= 0) {
-      setError("Maximum mark must be greater than 0.");
+    if (maxScoreError) {
+      setError(maxScoreError);
       return;
     }
 
+    const maxScore = Number(maxScoreStr);
     setIsSubmitting(true);
     setError("");
 
@@ -135,8 +146,9 @@ export function AssessmentModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">
-            {error}
+          <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -168,7 +180,10 @@ export function AssessmentModal({
           label="Assessment Title"
           placeholder="e.g. Speaking Assessment — Unit 1"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setError("");
+          }}
           required
           autoFocus
         />
@@ -178,8 +193,13 @@ export function AssessmentModal({
             label="Maximum Score / Total Marks"
             type="number"
             min={1}
-            value={maxScore}
-            onChange={(e) => setMaxScore(Number(e.target.value))}
+            step="1"
+            value={maxScoreStr}
+            error={maxScoreError || undefined}
+            onChange={(e) => {
+              setMaxScoreStr(e.target.value);
+              setError("");
+            }}
             required
           />
 
@@ -203,7 +223,11 @@ export function AssessmentModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={Boolean(maxScoreError) || isSubmitting}
+            isLoading={isSubmitting}
+          >
             {initialData ? "Save Changes" : "Create Assessment"}
           </Button>
         </div>
