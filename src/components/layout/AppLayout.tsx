@@ -38,7 +38,7 @@ export function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans antialiased">
+    <div className="flex h-screen h-[100dvh] w-full bg-background text-foreground font-sans antialiased overflow-hidden select-text">
       {/* Navigation Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -47,7 +47,7 @@ export function AppLayout() {
       />
 
       {/* Main Workspace Area */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
         <Header
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenQuickAction={() => setQuickActionOpen(true)}
@@ -55,8 +55,8 @@ export function AppLayout() {
 
         <BackupReminderBanner />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8 touch-pan-y overscroll-y-auto">
+          <div className="max-w-7xl mx-auto pb-12">
             <TabletInstallBanner />
             <Outlet />
           </div>
