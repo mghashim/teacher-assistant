@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { BackupReminderBanner } from "./BackupReminderBanner";
+import { TabletInstallBanner } from "./TabletInstallBanner";
 import { QuickActionModal, type QuickActionType } from "./QuickActionModal";
 import { seedDatabaseIfEmpty } from "@/db/seed";
 
@@ -56,6 +57,7 @@ export function AppLayout() {
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
+            <TabletInstallBanner />
             <Outlet />
           </div>
         </main>

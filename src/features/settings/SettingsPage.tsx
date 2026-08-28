@@ -255,6 +255,38 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Samsung Tablet & Offline Installation Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-indigo-500" />
+            Samsung Galaxy Tab S10 FE+ & Offline Tablet Guide
+          </CardTitle>
+          <CardDescription>
+            How to run this system 100% offline as an installed app on your Samsung Tablet.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs leading-relaxed">
+          <div className="p-3.5 rounded-xl bg-muted/40 border space-y-2">
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <span>📱 Method 1: Install as Native Tablet App (PWA)</span>
+            </div>
+            <p className="text-muted-foreground">
+              Open this URL on your tablet's browser (Chrome or Samsung Internet), tap the <strong>3 dots Menu (⋮)</strong> &gt; <strong>Add page to</strong> &gt; <strong>App screen / Home screen</strong>. The app installs as a standalone icon that opens full-screen without URL bars and functions 100% offline.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-muted/40 border space-y-2">
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <span>💾 Offline Data Guarantee</span>
+            </div>
+            <p className="text-muted-foreground">
+              All classes, marks, notes, and PDF files are stored inside your tablet's private IndexedDB database. They never expire and remain safe even when the tablet is restarted or in Airplane Mode.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Database Statistics */}
       <Card>
         <CardHeader className="pb-4">
