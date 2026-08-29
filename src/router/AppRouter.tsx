@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createHashRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { ClassesPage } from "@/features/classes/ClassesPage";
@@ -9,7 +9,7 @@ import { GradesPage } from "@/features/grades/GradesPage";
 import { TasksPage } from "@/features/tasks/TasksPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
     element: <AppLayout />,
