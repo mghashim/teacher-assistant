@@ -34,8 +34,17 @@ export function GradesTab({ student }: GradesTabProps) {
     [student.id]
   );
   const assessments = useLiveQuery(
-    () => db.assessments.where("classId").equals(student.classId).toArray(),
-    [student.classId]
+    async () => {
+      const classIds =
+        Array.isArray(student.classIds) && student.classIds.length > 0
+          ? student.classIds
+          : student.classId
+          ? [student.classId]
+          : [];
+      if (classIds.length === 0) return [];
+      return db.assessments.where("classId").anyOf(classIds).toArray();
+    },
+    [student.classId, student.classIds]
   );
 
   const assessmentsMap = useMemo(() => {

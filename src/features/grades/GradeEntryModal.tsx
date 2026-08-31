@@ -40,12 +40,20 @@ export function GradeEntryModal({
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch all students in this assessment's class
+  // Fetch all students enrolled in this assessment's class
   const students = useLiveQuery<Student[]>(
-    () =>
-      assessment?.classId
-        ? db.students.where("classId").equals(assessment.classId).sortBy("lastName")
-        : Promise.resolve([]),
+    async () => {
+      if (!assessment?.classId) return [];
+      const all = await db.students.toArray();
+      return all
+        .filter(
+          (s) =>
+            (Array.isArray(s.classIds) &&
+              s.classIds.includes(assessment.classId)) ||
+            s.classId === assessment.classId
+        )
+        .sort((a, b) => a.lastName.localeCompare(b.lastName));
+    },
     [assessment?.classId]
   );
 

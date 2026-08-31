@@ -72,7 +72,15 @@ export function GradesFilterPanel({
   const studentOptions = useMemo(() => {
     const pool =
       filters.classIds.length > 0
-        ? students.filter((s) => filters.classIds.includes(s.classId))
+        ? students.filter((s) => {
+            const cIds =
+              Array.isArray(s.classIds) && s.classIds.length > 0
+                ? s.classIds
+                : s.classId
+                ? [s.classId]
+                : [];
+            return cIds.some((id) => filters.classIds.includes(id));
+          })
         : students;
 
     return pool.map((s) => ({
@@ -98,13 +106,22 @@ export function GradesFilterPanel({
   }, [assessments, filters.classIds, filters.assessmentTypes]);
 
   const handleClassChange = (selected: Array<string | number>) => {
+    const selectedNum = selected.map(Number);
     onApplyFilters({
       ...filters,
-      classIds: selected.map(Number),
+      classIds: selectedNum,
       // Clean up student IDs that no longer belong to selected classes
       studentIds: filters.studentIds.filter((sId) => {
         const student = students.find((s) => s.id === sId);
-        return student && (selected.length === 0 || selected.includes(student.classId));
+        if (!student) return false;
+        if (selectedNum.length === 0) return true;
+        const cIds =
+          Array.isArray(student.classIds) && student.classIds.length > 0
+            ? student.classIds
+            : student.classId
+            ? [student.classId]
+            : [];
+        return cIds.some((id) => selectedNum.includes(id));
       }),
     });
   };

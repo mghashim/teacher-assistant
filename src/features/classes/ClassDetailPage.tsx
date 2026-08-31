@@ -5,11 +5,13 @@ import { db } from "@/db/database";
 import { classesRepository } from "@/db/repositories/classes.repository";
 import { schedulesRepository } from "@/db/repositories/schedules.repository";
 import { filesRepository } from "@/db/repositories/files.repository";
+import { studentsRepository } from "@/db/repositories/students.repository";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Tabs } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal } from "@/components/ui/Modal";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ClassModal } from "./ClassModal";
 import { ClassScheduleModal } from "./ClassScheduleModal";
@@ -29,8 +31,12 @@ import {
   Upload,
   Download,
   Award,
+  UserPlus,
+  UserMinus,
+  Search,
+  Check,
 } from "lucide-react";
-import type { ClassSchedule, StoredFileMetadata } from "@/types/database";
+import type { ClassSchedule, StoredFileMetadata, Student } from "@/types/database";
 
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +49,10 @@ export function ClassDetailPage() {
   const [editingSchedule, setEditingSchedule] = useState<ClassSchedule | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState<ClassSchedule | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isEnrollExistingOpen, setIsEnrollExistingOpen] = useState(false);
+  const [unenrollingStudent, setUnenrollingStudent] = useState<Student | null>(null);
+  const [selectedExistingStudentIds, setSelectedExistingStudentIds] = useState<number[]>([]);
+  const [existingSearchQuery, setExistingSearchQuery] = useState("");
   const [isDeleteClassOpen, setIsDeleteClassOpen] = useState(false);
   const [deletingFile, setDeletingFile] = useState<StoredFileMetadata | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -53,10 +63,35 @@ export function ClassDetailPage() {
     () => db.classSchedules.where("classId").equals(classId).toArray(),
     [classId]
   );
+
   const students = useLiveQuery(
-    () => db.students.where("classId").equals(classId).sortBy("lastName"),
+    async () => {
+      const all = await db.students.toArray();
+      return all
+        .filter(
+          (s) =>
+            (Array.isArray(s.classIds) && s.classIds.includes(classId)) ||
+            s.classId === classId
+        )
+        .sort((a, b) => a.lastName.localeCompare(b.lastName));
+    },
     [classId]
   );
+
+  const availableToEnroll = useLiveQuery(
+    async () => {
+      const all = await db.students.toArray();
+      return all
+        .filter(
+          (s) =>
+            !(Array.isArray(s.classIds) && s.classIds.includes(classId)) &&
+            s.classId !== classId
+        )
+        .sort((a, b) => a.lastName.localeCompare(b.lastName));
+    },
+    [classId]
+  );
+
   const files = useLiveQuery(
     () => db.files.where("classId").equals(classId).toArray(),
     [classId]
@@ -294,60 +329,99 @@ export function ClassDetailPage() {
       {/* Tab 2: Enrolled Students */}
       {activeTab === "students" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold">Enrolled Students</h2>
               <p className="text-xs text-muted-foreground">
-                All pupils enrolled in {teacherClass.name}.
+                All pupils enrolled in {teacherClass.name} ({students?.length ?? 0} total).
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setIsAddStudentOpen(true)}
-              className="gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Add Student
-            </Button>
+            <div className="flex items-center gap-2">
+              {availableToEnroll && availableToEnroll.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedExistingStudentIds([]);
+                    setExistingSearchQuery("");
+                    setIsEnrollExistingOpen(true);
+                  }}
+                  className="gap-1.5 shadow-xs"
+                >
+                  <UserPlus className="w-4 h-4 text-indigo-500" /> Enroll Existing Student ({availableToEnroll.length})
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={() => setIsAddStudentOpen(true)}
+                className="gap-1.5 shadow-xs"
+              >
+                <Plus className="w-4 h-4" /> Create & Enroll Student
+              </Button>
+            </div>
           </div>
 
           {!students || students.length === 0 ? (
             <EmptyState
               icon={Users}
               title="No students in this class yet"
-              description="Enroll students into this class to start logging homework, grades, and observations."
-              actionLabel="Add Student"
+              description="Enroll existing students from your directory or create new student profiles for this class."
+              actionLabel="Create & Enroll Student"
               onAction={() => setIsAddStudentOpen(true)}
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {students.map((student) => (
-                <Link
-                  key={student.id}
-                  to={`/students/${student.id}`}
-                  className="p-4 rounded-xl border bg-card hover:border-primary/50 transition-all hover:shadow-sm flex items-center justify-between group"
-                >
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-sm group-hover:text-primary transition-colors">
-                      {student.lastName}, {student.firstName}
-                      {student.preferredName && student.preferredName !== student.firstName && (
-                        <span className="text-xs text-muted-foreground font-normal ml-1">
-                          ({student.preferredName})
-                        </span>
+              {students.map((student) => {
+                const otherClassesCount =
+                  (Array.isArray(student.classIds) ? student.classIds.length : 1) - 1;
+
+                return (
+                  <div
+                    key={student.id}
+                    className="p-4 rounded-xl border bg-card hover:border-primary/50 transition-all hover:shadow-xs flex items-center justify-between group"
+                  >
+                    <Link
+                      to={`/students/${student.id}`}
+                      className="space-y-0.5 flex-1 min-w-0 pr-2"
+                    >
+                      <div className="font-semibold text-sm group-hover:text-primary transition-colors truncate">
+                        {student.lastName}, {student.firstName}
+                        {student.preferredName &&
+                          student.preferredName !== student.firstName && (
+                            <span className="text-xs text-muted-foreground font-normal ml-1">
+                              ("{student.preferredName}")
+                            </span>
+                          )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {student.email || student.parentName || "No contact info"}
+                      </div>
+                      {otherClassesCount > 0 && (
+                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium pt-0.5">
+                          + Enrolled in {otherClassesCount} other {otherClassesCount === 1 ? "class" : "classes"}
+                        </div>
                       )}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {student.email || student.parentName || "No contact info"}
+                    </Link>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge
+                        variant={student.active ? "success" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {student.active ? "Active" : "Inactive"}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => setUnenrollingStudent(student)}
+                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                        title={`Unenroll ${student.firstName} from ${teacherClass.name}`}
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-
-                  <Badge
-                    variant={student.active ? "success" : "secondary"}
-                    className="text-[10px]"
-                  >
-                    {student.active ? "Active" : "Inactive"}
-                  </Badge>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -499,6 +573,156 @@ export function ClassDetailPage() {
         isOpen={isAddStudentOpen}
         onClose={() => setIsAddStudentOpen(false)}
         defaultClassId={classId}
+      />
+
+      {/* Modal: Enroll Existing Students into this Class */}
+      <Modal
+        isOpen={isEnrollExistingOpen}
+        onClose={() => {
+          setIsEnrollExistingOpen(false);
+          setSelectedExistingStudentIds([]);
+        }}
+        title={`Enroll Existing Students into "${teacherClass.name}"`}
+        description="Select students from your school directory to add to this class roster without creating duplicate profiles."
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by student name or email..."
+              value={existingSearchQuery}
+              onChange={(e) => setExistingSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-xl border bg-background text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>
+              {availableToEnroll?.filter((s) => {
+                const q = existingSearchQuery.toLowerCase();
+                const name = `${s.firstName} ${s.lastName} ${s.preferredName || ""}`.toLowerCase();
+                return name.includes(q) || (s.email || "").toLowerCase().includes(q);
+              }).length ?? 0} students available
+            </span>
+            {availableToEnroll && availableToEnroll.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const filtered = availableToEnroll.filter((s) => {
+                    const q = existingSearchQuery.toLowerCase();
+                    const name = `${s.firstName} ${s.lastName} ${s.preferredName || ""}`.toLowerCase();
+                    return name.includes(q) || (s.email || "").toLowerCase().includes(q);
+                  });
+                  if (selectedExistingStudentIds.length === filtered.length) {
+                    setSelectedExistingStudentIds([]);
+                  } else {
+                    setSelectedExistingStudentIds(filtered.map((s) => s.id!));
+                  }
+                }}
+                className="text-primary hover:underline font-medium"
+              >
+                {selectedExistingStudentIds.length > 0 ? "Deselect all" : "Select all"}
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+            {availableToEnroll
+              ?.filter((s) => {
+                const q = existingSearchQuery.toLowerCase();
+                const name = `${s.firstName} ${s.lastName} ${s.preferredName || ""}`.toLowerCase();
+                return name.includes(q) || (s.email || "").toLowerCase().includes(q);
+              })
+              .map((student) => {
+                const isSelected = selectedExistingStudentIds.includes(student.id!);
+                return (
+                  <button
+                    type="button"
+                    key={student.id}
+                    onClick={() => {
+                      setSelectedExistingStudentIds((prev) =>
+                        prev.includes(student.id!)
+                          ? prev.filter((id) => id !== student.id!)
+                          : [...prev, student.id!]
+                      );
+                    }}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-xs font-medium transition-all text-left ${
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary shadow-xs font-semibold"
+                        : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-foreground">
+                        {student.lastName}, {student.firstName}
+                        {student.preferredName && (
+                          <span className="text-muted-foreground font-normal ml-1">
+                            ("{student.preferredName}")
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {student.email || "No email"}
+                      </div>
+                    </div>
+                    <div
+                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-muted-foreground/40 bg-background"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsEnrollExistingOpen(false);
+                setSelectedExistingStudentIds([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={selectedExistingStudentIds.length === 0}
+              onClick={async () => {
+                for (const sId of selectedExistingStudentIds) {
+                  await studentsRepository.enrollStudentInClass(sId, classId);
+                }
+                setIsEnrollExistingOpen(false);
+                setSelectedExistingStudentIds([]);
+              }}
+              className="gap-1.5"
+            >
+              <UserPlus className="w-4 h-4" /> Enroll {selectedExistingStudentIds.length > 0 ? `(${selectedExistingStudentIds.length})` : ""} Students
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirmation: Unenroll student from this class */}
+      <ConfirmationModal
+        isOpen={unenrollingStudent !== null}
+        onClose={() => setUnenrollingStudent(null)}
+        onConfirm={async () => {
+          if (!unenrollingStudent || !unenrollingStudent.id) return;
+          await studentsRepository.unenrollStudentFromClass(unenrollingStudent.id, classId);
+          setUnenrollingStudent(null);
+        }}
+        title={`Unenroll ${unenrollingStudent?.firstName} ${unenrollingStudent?.lastName}?`}
+        message={`Are you sure you want to remove ${unenrollingStudent?.firstName} from ${teacherClass.name}? Their profile and records in other enrolled classes will NOT be deleted.`}
+        confirmText="Unenroll from Class"
+        variant="destructive"
       />
 
       <ConfirmationModal

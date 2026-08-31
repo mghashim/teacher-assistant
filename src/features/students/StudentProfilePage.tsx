@@ -43,9 +43,19 @@ export function StudentProfilePage() {
 
   // Live queries
   const student = useLiveQuery(() => db.students.get(studentId), [studentId]);
-  const teacherClass = useLiveQuery(
-    () => (student?.classId ? db.classes.get(student.classId) : undefined),
-    [student?.classId]
+  const enrolledClasses = useLiveQuery(
+    async () => {
+      if (!student) return [];
+      const ids =
+        Array.isArray(student.classIds) && student.classIds.length > 0
+          ? student.classIds
+          : student.classId
+          ? [student.classId]
+          : [];
+      if (ids.length === 0) return [];
+      return db.classes.where("id").anyOf(ids).toArray();
+    },
+    [student?.classId, student?.classIds]
   );
   const detentionsCount = useLiveQuery(
     () => db.detentions.where("studentId").equals(studentId).count(),
@@ -153,7 +163,7 @@ export function StudentProfilePage() {
               {student.lastName[0]}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">
                   {student.firstName} {student.lastName}
@@ -172,19 +182,34 @@ export function StudentProfilePage() {
                 </Badge>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <GraduationCap className="w-4 h-4 text-indigo-500" />
-                {teacherClass ? (
-                  <Link
-                    to={`/classes/${teacherClass.id}`}
-                    className="font-medium hover:underline hover:text-primary transition-colors"
-                  >
-                    {teacherClass.name}
-                  </Link>
+              {/* Enrolled Classes Links */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <GraduationCap className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span>Enrolled:</span>
+                </div>
+
+                {enrolledClasses && enrolledClasses.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {enrolledClasses.map((c) => (
+                      <Link
+                        key={c.id}
+                        to={`/classes/${c.id}`}
+                        className="font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors border border-indigo-200/60 dark:border-indigo-800"
+                      >
+                        {c.name}
+                      </Link>
+                    ))}
+                  </div>
                 ) : (
-                  <span>Unassigned Class</span>
+                  <span className="text-xs text-muted-foreground italic">
+                    No classes assigned
+                  </span>
                 )}
-                {student.email && <span>• {student.email}</span>}
+
+                {student.email && (
+                  <span className="text-muted-foreground">• {student.email}</span>
+                )}
               </div>
             </div>
           </div>

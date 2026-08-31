@@ -44,8 +44,12 @@ export function StudentsPage() {
 
     return allStudents.filter((student) => {
       // Class filter
-      if (selectedClassId !== "all" && student.classId !== selectedClassId) {
-        return false;
+      if (selectedClassId !== "all") {
+        const isEnrolled =
+          (Array.isArray(student.classIds) &&
+            student.classIds.includes(selectedClassId)) ||
+          student.classId === selectedClassId;
+        if (!isEnrolled) return false;
       }
       // Active filter
       if (showActiveOnly && !student.active) {
@@ -93,7 +97,7 @@ export function StudentsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Students Directory</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            View profiles, detention history, homework records, and grades.
+            View profiles, detention history, homework records, and grades across all enrolled classes.
           </p>
         </div>
         <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shrink-0">
@@ -127,7 +131,12 @@ export function StudentsPage() {
           >
             <option value="all">All Classes ({allStudents?.length ?? 0} students)</option>
             {classes?.map((c) => {
-              const count = allStudents?.filter((s) => s.classId === c.id).length ?? 0;
+              const count =
+                allStudents?.filter(
+                  (s) =>
+                    (Array.isArray(s.classIds) && s.classIds.includes(c.id!)) ||
+                    s.classId === c.id
+                ).length ?? 0;
               return (
                 <option key={c.id} value={c.id}>
                   {c.name} ({count})
@@ -170,7 +179,16 @@ export function StudentsPage() {
               detentions?.filter((d) => d.studentId === student.id) ?? [];
             const studentGrades =
               grades?.filter((g) => g.studentId === student.id) ?? [];
-            const classNameStr = classMap.get(student.classId) || "Unknown Class";
+
+            const studentClassIds =
+              Array.isArray(student.classIds) && student.classIds.length > 0
+                ? student.classIds
+                : student.classId
+                ? [student.classId]
+                : [];
+            const enrolledClassNames = studentClassIds
+              .map((id) => classMap.get(id))
+              .filter(Boolean) as string[];
 
             return (
               <div
@@ -188,15 +206,28 @@ export function StudentsPage() {
                         {student.preferredName &&
                           student.preferredName !== student.firstName && (
                             <span className="text-xs text-muted-foreground font-normal ml-1">
-                              "{student.preferredName}"
+                              ("{student.preferredName}")
                             </span>
                           )}
                       </Link>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                        <GraduationCap className="w-3.5 h-3.5 text-indigo-500" />
-                        <span className="font-medium truncate max-w-[180px]">
-                          {classNameStr}
-                        </span>
+
+                      {/* Enrolled Classes Pills */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        {enrolledClassNames.length > 0 ? (
+                          enrolledClassNames.map((name, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold border border-indigo-200/50 dark:border-indigo-800"
+                            >
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            Unassigned
+                          </span>
+                        )}
                       </div>
                     </div>
 

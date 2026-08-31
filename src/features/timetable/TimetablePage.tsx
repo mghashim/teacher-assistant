@@ -115,7 +115,15 @@ export function TimetablePage() {
   const studentCountByClass = useMemo(() => {
     const map = new Map<number, number>();
     students?.forEach((s) => {
-      map.set(s.classId, (map.get(s.classId) || 0) + 1);
+      const cIds =
+        Array.isArray(s.classIds) && s.classIds.length > 0
+          ? s.classIds
+          : s.classId
+          ? [s.classId]
+          : [];
+      cIds.forEach((cId) => {
+        map.set(cId, (map.get(cId) || 0) + 1);
+      });
     });
     return map;
   }, [students]);

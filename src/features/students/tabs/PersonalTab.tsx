@@ -3,11 +3,10 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { studentsRepository } from "@/db/repositories/students.repository";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { CheckCircle2, User, Phone } from "lucide-react";
+import { CheckCircle2, User, Phone, GraduationCap, Check } from "lucide-react";
 import type { Student } from "@/types/database";
 
 interface PersonalTabProps {
@@ -24,6 +23,11 @@ export function PersonalTab({ student }: PersonalTabProps) {
     setFormData(student);
   }, [student]);
 
+  // Current enrolled class IDs
+  const enrolledClassIds = Array.isArray(formData.classIds) && formData.classIds.length > 0
+    ? formData.classIds
+    : (formData.classId ? [formData.classId] : []);
+
   // Auto-save helper on field change
   const handleChange = async (field: keyof Student, value: unknown) => {
     const updated = { ...formData, [field]: value };
@@ -32,6 +36,31 @@ export function PersonalTab({ student }: PersonalTabProps) {
     if (student.id) {
       await studentsRepository.update(student.id, { [field]: value });
       setSaveStatus("Saved automatically to local database");
+      setTimeout(() => setSaveStatus(null), 2500);
+    }
+  };
+
+  const handleToggleClass = async (classIdToToggle: number) => {
+    let newClassIds: number[];
+    if (enrolledClassIds.includes(classIdToToggle)) {
+      newClassIds = enrolledClassIds.filter((id) => id !== classIdToToggle);
+    } else {
+      newClassIds = [...enrolledClassIds, classIdToToggle];
+    }
+
+    const updated = {
+      ...formData,
+      classIds: newClassIds,
+      classId: newClassIds[0] || 0,
+    };
+    setFormData(updated);
+
+    if (student.id) {
+      await studentsRepository.update(student.id, {
+        classIds: newClassIds,
+        classId: newClassIds[0] || 0,
+      });
+      setSaveStatus("Enrolled classes updated");
       setTimeout(() => setSaveStatus(null), 2500);
     }
   };
@@ -82,17 +111,42 @@ export function PersonalTab({ student }: PersonalTabProps) {
               />
             </div>
 
-            <Select
-              label="Assigned Class"
-              value={formData.classId}
-              onChange={(e) => handleChange("classId", Number(e.target.value))}
-            >
-              {classes?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            {/* Enrolled Classes Multi-Select Chips */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-indigo-500" />
+                Enrolled Classes ({enrolledClassIds.length})
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {classes?.map((c) => {
+                  const isEnrolled = enrolledClassIds.includes(c.id!);
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={() => handleToggleClass(c.id!)}
+                      className={`flex items-center justify-between p-2 rounded-lg border text-xs font-medium transition-all text-left ${
+                        isEnrolled
+                          ? "border-primary bg-primary/10 text-primary shadow-xs font-semibold"
+                          : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
+                      }`}
+                    >
+                      <span className="truncate pr-2">{c.name}</span>
+                      <div
+                        className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
+                          isEnrolled
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground/40 bg-background"
+                        }`}
+                      >
+                        {isEnrolled && <Check className="w-3 h-3" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="pt-2">
               <Checkbox

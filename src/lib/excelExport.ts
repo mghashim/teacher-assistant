@@ -110,11 +110,22 @@ export function exportGradesToExcelXml({
     let studentTotalPct = 0;
     let gradedCount = 0;
 
+    const studentClassNames = (
+      Array.isArray(student.classIds) && student.classIds.length > 0
+        ? student.classIds
+        : student.classId
+        ? [student.classId]
+        : []
+    )
+      .map((id) => classMap.get(id))
+      .filter(Boolean)
+      .join(", ") || "Class";
+
     let studentCellsXml = `
       <Cell ss:StyleID="TextBold"><Data ss:Type="String">${escapeXml(student.lastName)}</Data></Cell>
       <Cell><Data ss:Type="String">${escapeXml(student.firstName)}</Data></Cell>
       <Cell><Data ss:Type="String">${escapeXml(student.preferredName || "")}</Data></Cell>
-      <Cell><Data ss:Type="String">${escapeXml(classMap.get(student.classId) || "Class")}</Data></Cell>
+      <Cell><Data ss:Type="String">${escapeXml(studentClassNames)}</Data></Cell>
     `;
 
     filteredAssessments.forEach((assessment) => {
@@ -324,11 +335,22 @@ export function exportGradesToCsv({
     let studentTotalPct = 0;
     let gradedCount = 0;
 
+    const studentClassNames = (
+      Array.isArray(student.classIds) && student.classIds.length > 0
+        ? student.classIds
+        : student.classId
+        ? [student.classId]
+        : []
+    )
+      .map((id) => classMap.get(id))
+      .filter(Boolean)
+      .join(", ") || "Class";
+
     const row: string[] = [
       student.lastName,
       student.firstName,
       student.preferredName || "",
-      classMap.get(student.classId) || "Class",
+      studentClassNames,
     ];
 
     filteredAssessments.forEach((assessment) => {

@@ -113,6 +113,7 @@ export async function seedDatabase(): Promise<void> {
   // 3. Students
   const student1Id = await db.students.add({
     classId: class1Id,
+    classIds: [class1Id, class2Id],
     firstName: "Zayd",
     lastName: "Al-Mansoor",
     preferredName: "Zayd",
@@ -130,6 +131,7 @@ export async function seedDatabase(): Promise<void> {
 
   const student2Id = await db.students.add({
     classId: class1Id,
+    classIds: [class1Id],
     firstName: "Fatima",
     lastName: "Hassan",
     preferredName: "Fatima",
@@ -146,6 +148,7 @@ export async function seedDatabase(): Promise<void> {
 
   const student3Id = await db.students.add({
     classId: class1Id,
+    classIds: [class1Id],
     firstName: "Adam",
     lastName: "Rahman",
     preferredName: "Adam",
@@ -162,6 +165,7 @@ export async function seedDatabase(): Promise<void> {
 
   const student4Id = await db.students.add({
     classId: class1Id,
+    classIds: [class1Id],
     firstName: "Maryam",
     lastName: "Kareem",
     preferredName: "Maryam",

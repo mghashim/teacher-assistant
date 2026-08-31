@@ -50,6 +50,11 @@ export class TeacherAssistantDB extends Dexie {
     this.version(2).stores({
       interventions: "++id, studentId, classId, date, type, effectiveness, [studentId+date], createdAt",
     });
+
+    // Version 3: Multi-class enrollment indexing
+    this.version(3).stores({
+      students: "++id, classId, *classIds, lastName, firstName, active, createdAt",
+    });
   }
 }
 

@@ -35,15 +35,25 @@ export function AdvancedGradesViewer({
 }: AdvancedGradesViewerProps) {
   // 1. Filter students
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
-      if (filters.classIds.length > 0 && !filters.classIds.includes(s.classId)) {
-        return false;
-      }
-      if (filters.studentIds.length > 0 && !filters.studentIds.includes(s.id!)) {
-        return false;
-      }
-      return true;
-    }).sort((a, b) => a.lastName.localeCompare(b.lastName));
+    return students
+      .filter((s) => {
+        if (filters.classIds.length > 0) {
+          const cIds =
+            Array.isArray(s.classIds) && s.classIds.length > 0
+              ? s.classIds
+              : s.classId
+              ? [s.classId]
+              : [];
+          if (!cIds.some((id) => filters.classIds.includes(id))) {
+            return false;
+          }
+        }
+        if (filters.studentIds.length > 0 && !filters.studentIds.includes(s.id!)) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => a.lastName.localeCompare(b.lastName));
   }, [students, filters.classIds, filters.studentIds]);
 
   // 2. Filter assessments
@@ -271,7 +281,15 @@ export function AdvancedGradesViewer({
                       )}
                     </Link>
                     <span className="text-[10px] text-muted-foreground block truncate">
-                      {classMap.get(student.classId) || "Class"}
+                      {(Array.isArray(student.classIds) && student.classIds.length > 0
+                        ? student.classIds
+                        : student.classId
+                        ? [student.classId]
+                        : []
+                      )
+                        .map((id) => classMap.get(id))
+                        .filter(Boolean)
+                        .join(", ") || "Class"}
                     </span>
                   </td>
 

@@ -161,7 +161,12 @@ export function AssessmentsListTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredAssessments.map((a) => {
-            const enrolledStudents = students?.filter((s) => s.classId === a.classId) ?? [];
+            const enrolledStudents =
+              students?.filter(
+                (s) =>
+                  (Array.isArray(s.classIds) && s.classIds.includes(a.classId)) ||
+                  s.classId === a.classId
+              ) ?? [];
             const assessmentGrades = grades?.filter((g) => g.assessmentId === a.id) ?? [];
             const { averageScore, averagePercentage, gradedCount } = calculateAssessmentAverage(assessmentGrades, a);
             const totalCount = enrolledStudents.length;

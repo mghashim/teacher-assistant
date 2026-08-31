@@ -98,7 +98,12 @@ export function EnterMarksPickerModal({
             </div>
           ) : (
             filteredAssessments.map((assessment) => {
-              const enrolledStudents = students?.filter((s) => s.classId === assessment.classId) ?? [];
+              const enrolledStudents =
+                students?.filter(
+                  (s) =>
+                    (Array.isArray(s.classIds) && s.classIds.includes(assessment.classId)) ||
+                    s.classId === assessment.classId
+                ) ?? [];
               const gradedCount = grades?.filter((g) => g.assessmentId === assessment.id).length ?? 0;
               const isFullyGraded = enrolledStudents.length > 0 && gradedCount >= enrolledStudents.length;
 

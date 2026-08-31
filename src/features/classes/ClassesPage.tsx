@@ -71,7 +71,12 @@ export function ClassesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {classes.map((c) => {
-            const classStudents = students?.filter((s) => s.classId === c.id) ?? [];
+            const classStudents =
+              students?.filter(
+                (s) =>
+                  (Array.isArray(s.classIds) && s.classIds.includes(c.id!)) ||
+                  s.classId === c.id
+              ) ?? [];
             const activeStudents = classStudents.filter((s) => s.active);
             const classSchedules = schedules?.filter((s) => s.classId === c.id) ?? [];
 

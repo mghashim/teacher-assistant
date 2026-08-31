@@ -90,7 +90,8 @@ export interface ClassSchedule {
 
 export interface Student {
   id?: number;
-  classId: number;
+  classId: number; // Primary/first class for backwards compatibility
+  classIds?: number[]; // All enrolled class IDs (supports multiple classes)
   firstName: string;
   lastName: string;
   preferredName?: string;
