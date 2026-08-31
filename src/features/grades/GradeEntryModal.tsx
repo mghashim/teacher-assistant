@@ -5,7 +5,18 @@ import { gradesRepository } from "@/db/repositories/grades.repository";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { calculatePercentage } from "@/lib/calculations";
-import { CheckCircle2, AlertCircle, Sparkles, RotateCcw } from "lucide-react";
+import {
+  exportAssessmentSheetToExcelXml,
+  exportAssessmentSheetToCsv,
+} from "@/lib/excelExport";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  RotateCcw,
+  FileSpreadsheet,
+  Download,
+} from "lucide-react";
 import type { Assessment, Student, Grade } from "@/types/database";
 
 interface GradeEntryModalProps {
@@ -45,6 +56,11 @@ export function GradeEntryModal({
         ? db.grades.where("assessmentId").equals(assessment.id).toArray()
         : Promise.resolve([]),
     [assessment?.id]
+  );
+
+  const teacherClass = useLiveQuery(
+    () => (assessment?.classId ? db.classes.get(assessment.classId) : undefined),
+    [assessment?.classId]
   );
 
   // Pre-fill existing grades
@@ -145,6 +161,26 @@ export function GradeEntryModal({
     });
   };
 
+  const handleExportExcel = () => {
+    if (!assessment || !students) return;
+    exportAssessmentSheetToExcelXml({
+      assessment,
+      className: teacherClass?.name || "Class",
+      students,
+      gradeInputs,
+    });
+  };
+
+  const handleExportCsv = () => {
+    if (!assessment || !students) return;
+    exportAssessmentSheetToCsv({
+      assessment,
+      className: teacherClass?.name || "Class",
+      students,
+      gradeInputs,
+    });
+  };
+
   const handleSaveAll = async () => {
     if (hasValidationErrors) {
       setGeneralError("Please fix the highlighted mark errors before saving.");
@@ -230,12 +266,37 @@ export function GradeEntryModal({
         )}
 
         {/* Action helper toolbar */}
-        <div className="flex items-center justify-between text-xs pb-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
           <span className="text-muted-foreground font-medium">
             {students?.length ?? 0} pupils in class • Max: <strong className="text-foreground">{assessment.maxScore}</strong>
           </span>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              className="h-7 px-2 text-[11px] gap-1"
+              title="Download CSV"
+            >
+              <Download className="w-3 h-3 text-muted-foreground" />
+              <span>CSV</span>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleExportExcel}
+              className="h-7 px-2 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              title="Download Excel (.xls)"
+            >
+              <FileSpreadsheet className="w-3 h-3" />
+              <span>Excel</span>
+            </Button>
+
+            <span className="text-muted-foreground">|</span>
+
             <button
               type="button"
               onClick={handleFillAllMaxScore}

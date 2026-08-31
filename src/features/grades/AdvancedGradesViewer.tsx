@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { calculatePercentage } from "@/lib/calculations";
 import { formatDate } from "@/lib/utils";
-import { Award, User } from "lucide-react";
+import { exportGradesToExcelXml, exportGradesToCsv } from "@/lib/excelExport";
+import { Award, User, FileSpreadsheet, Download } from "lucide-react";
 import type {
   TeacherClass,
   Student,
@@ -98,21 +100,47 @@ export function AdvancedGradesViewer({
         .map((s) => gradeLookup.get(`${s.id}_${assessment.id}`))
         .filter((g): g is Grade => Boolean(g));
 
-      if (relevantGrades.length === 0 || assessment.maxScore <= 0) {
-        return { averageScore: 0, averagePercentage: 0, count: 0 };
+      if (relevantGrades.length > 0 && assessment.maxScore > 0) {
+        const totalScore = relevantGrades.reduce((sum, g) => sum + g.score, 0);
+        const averageScore = Math.round((totalScore / relevantGrades.length) * 10) / 10;
+        const averagePercentage = calculatePercentage(averageScore, assessment.maxScore);
+
+        return {
+          averageScore,
+          averagePercentage,
+          count: relevantGrades.length,
+        };
       }
 
-      const totalScore = relevantGrades.reduce((sum, g) => sum + g.score, 0);
-      const averageScore = Math.round((totalScore / relevantGrades.length) * 10) / 10;
-      const averagePercentage = calculatePercentage(averageScore, assessment.maxScore);
-
-      return {
-        averageScore,
-        averagePercentage,
-        count: relevantGrades.length,
-      };
+      return { averageScore: 0, averagePercentage: 0, count: 0 };
     });
   }, [filteredAssessments, filteredStudents, gradeLookup]);
+
+  const handleExportExcel = () => {
+    exportGradesToExcelXml({
+      classes,
+      filteredStudents,
+      filteredAssessments,
+      grades,
+      homework,
+      filters,
+      classMap,
+      gradeLookup,
+    });
+  };
+
+  const handleExportCsv = () => {
+    exportGradesToCsv({
+      classes,
+      filteredStudents,
+      filteredAssessments,
+      grades,
+      homework,
+      filters,
+      classMap,
+      gradeLookup,
+    });
+  };
 
   if (filteredStudents.length === 0) {
     return (
@@ -137,18 +165,41 @@ export function AdvancedGradesViewer({
   return (
     <div className="rounded-2xl border bg-card shadow-sm overflow-hidden space-y-0">
       <div className="p-4 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-foreground">
             Displaying {filteredStudents.length} Students × {filteredAssessments.length} Assessments
           </span>
           <span className="text-muted-foreground">• Matrix Grade View</span>
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span>Active Columns:</span>
-          {filters.columns.score && <Badge variant="secondary">Score</Badge>}
-          {filters.columns.percentage && <Badge variant="secondary">Percentage</Badge>}
-          {filters.columns.average && <Badge variant="secondary">Student Average</Badge>}
-          {filters.columns.homeworkApproval && <Badge variant="secondary">HW Approved</Badge>}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden md:flex items-center gap-1 text-muted-foreground mr-2">
+            <span>Columns:</span>
+            {filters.columns.score && <Badge variant="secondary" className="text-[10px]">Score</Badge>}
+            {filters.columns.percentage && <Badge variant="secondary" className="text-[10px]">Percentage</Badge>}
+            {filters.columns.average && <Badge variant="secondary" className="text-[10px]">Average</Badge>}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            className="gap-1.5 text-xs h-8"
+            title="Download filtered grades as universal CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>CSV</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleExportExcel}
+            className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+            title="Download formatted Excel spreadsheet based on current filters"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Download Excel (.xls)</span>
+          </Button>
         </div>
       </div>
 
