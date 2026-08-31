@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { backupService, type BackupInspectionResult } from "@/db/backup/backup.service";
-import { settingsRepository } from "@/db/repositories/settings.repository";
+import { settingsRepository, SETTING_KEYS, DEFAULT_ACADEMIC_YEAR } from "@/db/repositories/settings.repository";
 import { seedDatabase } from "@/db/seed";
 import { securityService } from "@/services/security.service";
 import { useTheme } from "@/context/ThemeContext";
@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { RestoreInspectionModal } from "./RestoreInspectionModal";
+import { AcademicYearModal } from "../timetable/AcademicYearModal";
 import { formatDateTime } from "@/lib/utils";
+import type { AcademicYearConfig } from "@/types/database";
 import {
   Moon,
   Sun,
@@ -27,6 +29,7 @@ import {
   Key,
   Eye,
   EyeOff,
+  CalendarRange,
 } from "lucide-react";
 
 export function SettingsPage() {
@@ -44,8 +47,18 @@ export function SettingsPage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isReseeding, setIsReseeding] = useState(false);
   const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = useState(false);
+  const [isAcademicYearModalOpen, setIsAcademicYearModalOpen] = useState(false);
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null);
   const [inspectionResult, setInspectionResult] = useState<BackupInspectionResult | null>(null);
+
+  const academicYearSetting = useLiveQuery(
+    () => db.settings.get(SETTING_KEYS.ACADEMIC_YEAR),
+    []
+  );
+
+  const academicConfig: AcademicYearConfig = academicYearSetting?.value
+    ? (academicYearSetting.value as AcademicYearConfig)
+    : DEFAULT_ACADEMIC_YEAR;
 
   // Security / Password State
   const [hasCustomPass, setHasCustomPass] = useState(false);
@@ -383,6 +396,51 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Academic Year & School Holidays Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarRange className="w-4 h-4 text-indigo-500" />
+              Academic Year & Custom School Holidays
+            </CardTitle>
+            <Badge variant="secondary" className="text-[11px]">
+              {academicConfig.name || "Academic Year"}
+            </Badge>
+          </div>
+          <CardDescription>
+            Configure your term start and finish dates, plus customized half-term breaks, bank holidays, and teacher INSET days.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-muted/40 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div>
+              <span className="text-muted-foreground block">Active Academic Term Window:</span>
+              <span className="font-bold text-foreground font-mono">
+                {academicConfig.startDate} → {academicConfig.endDate}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Custom School Holidays Configured:</span>
+              <span className="font-bold text-foreground">
+                {academicConfig.holidays?.length || 0} breaks & closures
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-start pt-1">
+            <Button
+              onClick={() => setIsAcademicYearModalOpen(true)}
+              className="gap-2"
+            >
+              <CalendarRange className="w-4 h-4" />
+              <span>Configure Term Dates & Custom Holidays</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Smart Backup Center */}
       <Card>
         <CardHeader className="pb-4">
@@ -540,6 +598,12 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Academic Year & Custom Holidays Modal */}
+      <AcademicYearModal
+        isOpen={isAcademicYearModalOpen}
+        onClose={() => setIsAcademicYearModalOpen(false)}
+      />
 
       {/* Restore Inspection & Safety Modal */}
       <RestoreInspectionModal

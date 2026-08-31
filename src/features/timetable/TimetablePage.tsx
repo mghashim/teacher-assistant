@@ -3,6 +3,10 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
 import { schedulesRepository } from "@/db/repositories/schedules.repository";
+import {
+  DEFAULT_ACADEMIC_YEAR,
+  SETTING_KEYS,
+} from "@/db/repositories/settings.repository";
 import { notificationService } from "@/services/notification.service";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -11,8 +15,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ClassScheduleModal } from "@/features/classes/ClassScheduleModal";
 import { LessonReminderModal } from "./LessonReminderModal";
+import { AcademicYearModal } from "./AcademicYearModal";
 import { getDayOfWeekFromDate, sortSchedulesByTime } from "@/lib/calculations";
 import { getMonthCalendarGrid, formatMonthName } from "@/lib/calendarUtils";
+import { formatDate } from "@/lib/utils";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -29,8 +35,16 @@ import {
   LayoutGrid,
   ListOrdered,
   CalendarDays,
+  Palmtree,
+  CalendarRange,
 } from "lucide-react";
-import type { ClassSchedule, DayOfWeek, TeacherClass } from "@/types/database";
+import type {
+  ClassSchedule,
+  DayOfWeek,
+  TeacherClass,
+  AcademicYearConfig,
+  SchoolHoliday,
+} from "@/types/database";
 
 const ALL_DAYS: Array<{ id: DayOfWeek; name: string; short: string }> = [
   { id: "monday", name: "Monday", short: "Mon" },
@@ -58,6 +72,8 @@ export function TimetablePage() {
     dateStr: string;
     dayOfWeek: DayOfWeek;
     formattedDate: string;
+    isOutsideYear: boolean;
+    holiday?: SchoolHoliday;
   } | null>(null);
 
   // Modals state
@@ -67,11 +83,23 @@ export function TimetablePage() {
   const [deletingSchedule, setDeletingSchedule] = useState<ClassSchedule | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isAcademicYearModalOpen, setIsAcademicYearModalOpen] = useState(false);
 
   // Live queries
   const classes = useLiveQuery(() => db.classes.orderBy("name").toArray(), []);
   const schedules = useLiveQuery(() => db.classSchedules.toArray(), []);
   const students = useLiveQuery(() => db.students.toArray(), []);
+  const academicYearSetting = useLiveQuery(
+    () => db.settings.get(SETTING_KEYS.ACADEMIC_YEAR),
+    []
+  );
+
+  const academicConfig: AcademicYearConfig = useMemo(() => {
+    if (academicYearSetting && academicYearSetting.value) {
+      return academicYearSetting.value as AcademicYearConfig;
+    }
+    return DEFAULT_ACADEMIC_YEAR;
+  }, [academicYearSetting]);
 
   const todayDayOfWeek = useMemo(() => getDayOfWeekFromDate(new Date()), []);
   const reminderSettings = notificationService.getSettings();
@@ -128,6 +156,21 @@ export function TimetablePage() {
   const monthCalendarGrid = useMemo(() => {
     return getMonthCalendarGrid(currentYear, currentMonth);
   }, [currentYear, currentMonth]);
+
+  // Helper: check if a date is outside active academic year
+  const isDateOutsideAcademicYear = (dateStr: string) => {
+    if (academicConfig.startDate && dateStr < academicConfig.startDate) return true;
+    if (academicConfig.endDate && dateStr > academicConfig.endDate) return true;
+    return false;
+  };
+
+  // Helper: check if a date falls in a custom holiday
+  const getHolidayForDate = (dateStr: string): SchoolHoliday | undefined => {
+    if (!academicConfig.holidays) return undefined;
+    return academicConfig.holidays.find(
+      (h) => dateStr >= h.startDate && dateStr <= h.endDate
+    );
+  };
 
   // Calculate total teaching time in minutes
   const totalWeeklyMinutes = useMemo(() => {
@@ -217,7 +260,7 @@ export function TimetablePage() {
             <span>My Teaching Timetable & Calendar</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Weekly lesson planner and interactive calendar with time, dates, and lesson reminders.
+            Term planner ({academicConfig.name || "Academic Year"}) with customized holidays and lesson reminders.
           </p>
         </div>
 
@@ -283,6 +326,18 @@ export function TimetablePage() {
             </button>
           </div>
 
+          {/* Academic Year & Holidays Config Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAcademicYearModalOpen(true)}
+            className="gap-1.5 text-xs h-9"
+            title="Configure Academic Year Dates & Custom Holidays"
+          >
+            <CalendarRange className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Term Dates & Holidays</span>
+          </Button>
+
           {/* Reminders Button */}
           <Button
             variant="outline"
@@ -343,14 +398,17 @@ export function TimetablePage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Today's Schedule ({todayDayOfWeek.toUpperCase()})
+                {academicConfig.name || "Academic Year"}
               </span>
               <div className="text-xl font-bold text-foreground">
-                {todaysLessons.length} Scheduled Lesson{todaysLessons.length === 1 ? "" : "s"}
+                {todaysLessons.length} Lesson{todaysLessons.length === 1 ? "" : "s"} Today
               </div>
+              <span className="text-[11px] text-muted-foreground block font-mono">
+                Term: {formatDate(academicConfig.startDate)} → {formatDate(academicConfig.endDate)}
+              </span>
             </div>
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-              <CalendarIcon className="w-5 h-5" />
+            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+              <CalendarRange className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
@@ -365,14 +423,14 @@ export function TimetablePage() {
                 {classes?.length || 0} Classes ({students?.length || 0} Pupils)
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
               <GraduationCap className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* VIEW 1: FULL CALENDAR VIEW (With Month, Dates & Times) */}
+      {/* VIEW 1: FULL CALENDAR VIEW (With Month, Dates, Academic Year Bounds & Holidays) */}
       {viewMode === "calendar" && (
         <div className="space-y-4">
           {/* Calendar Header with Navigation */}
@@ -393,25 +451,40 @@ export function TimetablePage() {
               </Button>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevMonth}
-                className="h-8 w-8 p-0"
-                title="Previous Month"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextMonth}
-                className="h-8 w-8 p-0"
-                title="Next Month"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+            <div className="flex items-center gap-3">
+              {/* Legend Badges */}
+              <div className="hidden lg:flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-primary"></span> Term Session
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> School Holiday
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground/40"></span> Outside Term
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevMonth}
+                  className="h-8 w-8 p-0"
+                  title="Previous Month"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextMonth}
+                  className="h-8 w-8 p-0"
+                  title="Next Month"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -431,7 +504,11 @@ export function TimetablePage() {
             {/* Days Grid */}
             <div className="grid grid-cols-7 divide-x divide-y divide-border/60">
               {monthCalendarGrid.map((calDay, idx) => {
-                const dayLessons = schedulesByDay[calDay.dayOfWeek] || [];
+                const isOutsideYear = isDateOutsideAcademicYear(calDay.dateString);
+                const holiday = getHolidayForDate(calDay.dateString);
+                const dayLessons = (!isOutsideYear && !holiday)
+                  ? (schedulesByDay[calDay.dayOfWeek] || [])
+                  : [];
 
                 return (
                   <div
@@ -446,11 +523,17 @@ export function TimetablePage() {
                           day: "numeric",
                           year: "numeric",
                         }),
+                        isOutsideYear,
+                        holiday,
                       })
                     }
-                    className={`min-h-[110px] p-2 flex flex-col justify-between transition-colors cursor-pointer group ${
+                    className={`min-h-[115px] p-2 flex flex-col justify-between transition-colors cursor-pointer group ${
                       !calDay.isCurrentMonth
-                        ? "bg-muted/15 text-muted-foreground/40"
+                        ? "bg-muted/15 text-muted-foreground/35"
+                        : isOutsideYear
+                        ? "bg-muted/30 text-muted-foreground/60"
+                        : holiday
+                        ? "bg-amber-50/40 dark:bg-amber-950/20"
                         : "bg-card hover:bg-muted/30"
                     } ${
                       calDay.isToday
@@ -470,37 +553,59 @@ export function TimetablePage() {
                         {calDay.dayNumber}
                       </span>
 
-                      {dayLessons.length > 0 && (
+                      {/* Status Tags */}
+                      {isOutsideYear ? (
+                        <span className="text-[9px] px-1 rounded bg-muted text-muted-foreground font-medium">
+                          Out of Term
+                        </span>
+                      ) : holiday ? (
+                        <span className="text-[9px] px-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-semibold truncate max-w-[75px]">
+                          {holiday.name}
+                        </span>
+                      ) : dayLessons.length > 0 ? (
                         <span className="text-[10px] font-mono text-muted-foreground">
                           {dayLessons.length} class{dayLessons.length === 1 ? "" : "es"}
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
-                    {/* Lesson Pills */}
+                    {/* Cell Content: Lessons OR Holiday Banner OR Out-of-Term notice */}
                     <div className="space-y-1 my-1 overflow-hidden">
-                      {dayLessons.slice(0, 2).map((lesson) => {
-                        const tClass = classMap.get(lesson.classId);
-                        return (
-                          <div
-                            key={lesson.id}
-                            className="p-1 rounded bg-primary/10 hover:bg-primary/20 border border-primary/20 text-[10px] leading-tight text-foreground truncate flex items-center justify-between gap-1 transition-colors"
-                            title={`${lesson.startTime}-${lesson.endTime}: ${tClass?.name || "Class"} (${lesson.room || "No room"})`}
-                          >
-                            <span className="font-mono font-bold text-primary shrink-0">
-                              {lesson.startTime}
-                            </span>
-                            <span className="font-semibold truncate">
-                              {tClass?.name || "Class"}
-                            </span>
-                          </div>
-                        );
-                      })}
-
-                      {dayLessons.length > 2 && (
-                        <div className="text-[10px] font-semibold text-primary/80 pl-1">
-                          +{dayLessons.length - 2} more
+                      {isOutsideYear ? (
+                        <div className="py-2 text-[10px] text-muted-foreground/60 italic text-center">
+                          Academic year ended
                         </div>
+                      ) : holiday ? (
+                        <div className="p-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] flex items-center gap-1 font-medium">
+                          <Palmtree className="w-3 h-3 shrink-0 text-amber-500" />
+                          <span className="truncate">{holiday.name}</span>
+                        </div>
+                      ) : (
+                        <>
+                          {dayLessons.slice(0, 2).map((lesson) => {
+                            const tClass = classMap.get(lesson.classId);
+                            return (
+                              <div
+                                key={lesson.id}
+                                className="p-1 rounded bg-primary/10 hover:bg-primary/20 border border-primary/20 text-[10px] leading-tight text-foreground truncate flex items-center justify-between gap-1 transition-colors"
+                                title={`${lesson.startTime}-${lesson.endTime}: ${tClass?.name || "Class"} (${lesson.room || "No room"})`}
+                              >
+                                <span className="font-mono font-bold text-primary shrink-0">
+                                  {lesson.startTime}
+                                </span>
+                                <span className="font-semibold truncate">
+                                  {tClass?.name || "Class"}
+                                </span>
+                              </div>
+                            );
+                          })}
+
+                          {dayLessons.length > 2 && (
+                            <div className="text-[10px] font-semibold text-primary/80 pl-1">
+                              +{dayLessons.length - 2} more
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -836,7 +941,11 @@ export function TimetablePage() {
                   {selectedCalendarDate.formattedDate}
                 </h3>
                 <span className="text-xs text-muted-foreground">
-                  Scheduled classes for {selectedCalendarDate.dayOfWeek.toUpperCase()}
+                  {selectedCalendarDate.isOutsideYear
+                    ? "Outside Active School Year"
+                    : selectedCalendarDate.holiday
+                    ? `School Holiday (${selectedCalendarDate.holiday.name})`
+                    : `Scheduled classes for ${selectedCalendarDate.dayOfWeek.toUpperCase()}`}
                 </span>
               </div>
               <Button
@@ -849,7 +958,27 @@ export function TimetablePage() {
             </div>
 
             <div className="space-y-2.5 max-h-[50vh] overflow-y-auto">
-              {(schedulesByDay[selectedCalendarDate.dayOfWeek] || []).length === 0 ? (
+              {selectedCalendarDate.isOutsideYear ? (
+                <div className="p-6 text-center text-xs text-muted-foreground bg-muted/20 rounded-xl border border-dashed space-y-2">
+                  <CalendarRange className="w-8 h-8 mx-auto text-muted-foreground/60" />
+                  <p className="font-semibold text-foreground">
+                    This date is outside the {academicConfig.name} period.
+                  </p>
+                  <p>
+                    Term dates run from {formatDate(academicConfig.startDate)} to {formatDate(academicConfig.endDate)}.
+                  </p>
+                </div>
+              ) : selectedCalendarDate.holiday ? (
+                <div className="p-6 text-center text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
+                  <Palmtree className="w-8 h-8 mx-auto text-amber-500" />
+                  <p className="font-bold text-sm">
+                    {selectedCalendarDate.holiday.name}
+                  </p>
+                  <p>
+                    School is on holiday break from {formatDate(selectedCalendarDate.holiday.startDate)} to {formatDate(selectedCalendarDate.holiday.endDate)}. No lessons scheduled.
+                  </p>
+                </div>
+              ) : (schedulesByDay[selectedCalendarDate.dayOfWeek] || []).length === 0 ? (
                 <p className="text-xs text-muted-foreground italic py-4 text-center">
                   No classes scheduled on this day.
                 </p>
@@ -931,6 +1060,12 @@ export function TimetablePage() {
       <LessonReminderModal
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
+      />
+
+      {/* Academic Year & Custom Holidays Modal */}
+      <AcademicYearModal
+        isOpen={isAcademicYearModalOpen}
+        onClose={() => setIsAcademicYearModalOpen(false)}
       />
 
       {/* Password Protected Delete Confirmation Modal */}

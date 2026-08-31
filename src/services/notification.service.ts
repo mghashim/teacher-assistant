@@ -132,12 +132,29 @@ export const notificationService = {
   checkUpcomingLessons(
     schedules: ClassSchedule[],
     classesMap: Map<number, TeacherClass>,
+    academicYearConfig?: { startDate: string; endDate: string; holidays?: Array<{ startDate: string; endDate: string }> },
     onReminderFired?: (lessonName: string, minutesLeft: number, room?: string) => void
   ) {
     const settings = this.getSettings();
     if (!settings.enabled) return;
 
     const now = new Date();
+    const todayDateStr = now.toISOString().split("T")[0];
+
+    // Verify today is inside the academic year
+    if (academicYearConfig) {
+      if (academicYearConfig.startDate && todayDateStr < academicYearConfig.startDate) return;
+      if (academicYearConfig.endDate && todayDateStr > academicYearConfig.endDate) return;
+
+      // Verify today is NOT a custom school holiday
+      if (academicYearConfig.holidays && academicYearConfig.holidays.length > 0) {
+        const isHoliday = academicYearConfig.holidays.some(
+          (h) => todayDateStr >= h.startDate && todayDateStr <= h.endDate
+        );
+        if (isHoliday) return;
+      }
+    }
+
     const todayDay = getDayOfWeekFromDate(now);
     const currentHour = now.getHours();
     const currentMin = now.getMinutes();

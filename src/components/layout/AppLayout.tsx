@@ -36,6 +36,10 @@ export function AppLayout() {
   // Live queries for timetable reminders
   const schedules = useLiveQuery(() => db.classSchedules.toArray(), []);
   const classes = useLiveQuery(() => db.classes.toArray(), []);
+  const academicYearSetting = useLiveQuery(
+    () => db.settings.get("academic_year_config"),
+    []
+  );
 
   const classesMap = useMemo(() => {
     const map = new Map<number, TeacherClass>();
@@ -54,10 +58,15 @@ export function AppLayout() {
   useEffect(() => {
     if (!schedules || !classesMap) return;
 
+    const academicConfig = academicYearSetting?.value as
+      | { startDate: string; endDate: string; holidays?: Array<{ startDate: string; endDate: string }> }
+      | undefined;
+
     const checkReminders = () => {
       notificationService.checkUpcomingLessons(
         schedules,
         classesMap,
+        academicConfig,
         (className, minutesLeft, room) => {
           setActiveReminderToast({ className, minutesLeft, room });
         }
@@ -67,7 +76,7 @@ export function AppLayout() {
     checkReminders();
     const interval = setInterval(checkReminders, 30000);
     return () => clearInterval(interval);
-  }, [schedules, classesMap]);
+  }, [schedules, classesMap, academicYearSetting]);
 
   const handleSelectQuickAction = (action: QuickActionType) => {
     setActiveModal(action);

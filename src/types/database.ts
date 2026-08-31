@@ -51,6 +51,21 @@ export type NoteCategory =
   | "concern"
   | "general";
 
+export interface SchoolHoliday {
+  id: string;
+  name: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  type?: "holiday" | "break" | "inset" | "bank-holiday" | "other";
+}
+
+export interface AcademicYearConfig {
+  name: string; // e.g. "2026-2027"
+  startDate: string; // e.g. "2026-09-01"
+  endDate: string;   // e.g. "2027-07-20"
+  holidays: SchoolHoliday[];
+}
+
 export interface TeacherClass {
   id?: number;
   name: string;
