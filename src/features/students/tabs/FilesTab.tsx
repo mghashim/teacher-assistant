@@ -4,6 +4,7 @@ import { db } from "@/db/database";
 import { filesRepository } from "@/db/repositories/files.repository";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import {
@@ -25,6 +26,7 @@ interface FilesTabProps {
 export function FilesTab({ student }: FilesTabProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ file: StoredFile; textContent?: string; objectUrl?: string } | null>(null);
+  const [deletingFile, setDeletingFile] = useState<StoredFileMetadata | null>(null);
 
   const files = useLiveQuery(
     () => db.files.where("studentId").equals(student.id!).toArray(),
@@ -60,10 +62,10 @@ export function FilesTab({ student }: FilesTabProps) {
     }
   };
 
-  const handleDelete = async (fileId: number) => {
-    if (confirm("Delete this stored file?")) {
-      await filesRepository.delete(fileId);
-    }
+  const handleConfirmDelete = async () => {
+    if (!deletingFile?.id) return;
+    await filesRepository.delete(deletingFile.id);
+    setDeletingFile(null);
   };
 
   const handlePreview = async (fileMeta: StoredFileMetadata) => {
@@ -171,7 +173,7 @@ export function FilesTab({ student }: FilesTabProps) {
                   <Download className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => handleDelete(file.id!)}
+                  onClick={() => setDeletingFile(file)}
                   className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   title="Delete file"
                 >
@@ -224,6 +226,18 @@ export function FilesTab({ student }: FilesTabProps) {
           </div>
         </Modal>
       )}
+
+      {/* Delete File Confirmation Modal with Password */}
+      <ConfirmationModal
+        isOpen={deletingFile !== null}
+        onClose={() => setDeletingFile(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Stored Document"
+        message={`Are you sure you want to permanently delete "${deletingFile?.name}" from local storage?`}
+        confirmText="Delete Document"
+        variant="destructive"
+        requirePassword={true}
+      />
     </div>
   );
 }

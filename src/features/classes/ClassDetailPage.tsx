@@ -44,6 +44,7 @@ export function ClassDetailPage() {
   const [deletingSchedule, setDeletingSchedule] = useState<ClassSchedule | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isDeleteClassOpen, setIsDeleteClassOpen] = useState(false);
+  const [deletingFile, setDeletingFile] = useState<StoredFileMetadata | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Live queries
@@ -117,10 +118,10 @@ export function ClassDetailPage() {
     }
   };
 
-  const handleDeleteFile = async (fileId: number) => {
-    if (confirm("Delete this file?")) {
-      await filesRepository.delete(fileId);
-    }
+  const handleConfirmDeleteFile = async () => {
+    if (!deletingFile?.id) return;
+    await filesRepository.delete(deletingFile.id);
+    setDeletingFile(null);
   };
 
   return (
@@ -463,7 +464,7 @@ export function ClassDetailPage() {
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteFile(file.id!)}
+                      onClick={() => setDeletingFile(file)}
                       className="p-1 text-muted-foreground hover:text-destructive rounded"
                       title="Delete file"
                     >
@@ -516,6 +517,17 @@ export function ClassDetailPage() {
         title="Delete Lesson Time?"
         message={`Are you sure you want to remove ${deletingSchedule?.dayOfWeek} (${deletingSchedule?.startTime}–${deletingSchedule?.endTime}) from this class schedule?`}
         confirmText="Delete Lesson"
+      />
+
+      <ConfirmationModal
+        isOpen={deletingFile !== null}
+        onClose={() => setDeletingFile(null)}
+        onConfirm={handleConfirmDeleteFile}
+        title="Delete Class Document"
+        message={`Are you sure you want to permanently delete "${deletingFile?.name}" from local storage?`}
+        confirmText="Delete Document"
+        variant="destructive"
+        requirePassword={true}
       />
     </div>
   );

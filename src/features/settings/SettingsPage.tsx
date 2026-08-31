@@ -4,8 +4,10 @@ import { db } from "@/db/database";
 import { backupService } from "@/db/backup/backup.service";
 import { settingsRepository } from "@/db/repositories/settings.repository";
 import { seedDatabase } from "@/db/seed";
+import { securityService } from "@/services/security.service";
 import { useTheme } from "@/context/ThemeContext";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -21,6 +23,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
+  Lock,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export function SettingsPage() {
@@ -40,6 +46,16 @@ export function SettingsPage() {
   const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = useState(false);
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null);
 
+  // Security / Password State
+  const [hasCustomPass, setHasCustomPass] = useState(false);
+  const [currentPass, setCurrentPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [passError, setPassError] = useState("");
+  const [passSuccess, setPassSuccess] = useState("");
+
   // Live row counts
   const classesCount = useLiveQuery(() => db.classes.count(), []);
   const studentsCount = useLiveQuery(() => db.students.count(), []);
@@ -56,6 +72,7 @@ export function SettingsPage() {
     setLastBackup(backupDate);
     const reminder = await settingsRepository.checkBackupReminder();
     setReminderInfo(reminder);
+    setHasCustomPass(securityService.hasCustomPassword());
   };
 
   useEffect(() => {
@@ -66,10 +83,10 @@ export function SettingsPage() {
     setIsExporting(true);
     try {
       await backupService.exportAndDownloadBackup();
-      setStatusMessage("Backup downloaded successfully! Settings updated.");
       await refreshBackupState();
+      setStatusMessage("Backup downloaded successfully to your local machine!");
     } catch (err) {
-      alert("Backup export error: " + (err as Error).message);
+      alert("Export failed: " + (err as Error).message);
     } finally {
       setIsExporting(false);
     }
@@ -80,12 +97,15 @@ export function SettingsPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const json = event.target?.result as string;
-      setPendingRestoreJson(json);
-      setIsConfirmRestoreOpen(true);
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      if (content) {
+        setPendingRestoreJson(content);
+        setIsConfirmRestoreOpen(true);
+      }
     };
     reader.readAsText(file);
+    e.target.value = "";
   };
 
   const handleConfirmRestore = async () => {
@@ -94,7 +114,7 @@ export function SettingsPage() {
     try {
       const result = await backupService.importBackup(pendingRestoreJson);
       setStatusMessage(
-        `Restoration complete! Restored ${result.stats.classes} classes, ${result.stats.students} students, and ${result.stats.files} documents.`
+        `Successfully restored ${result.stats.classes ?? 0} classes, ${result.stats.students ?? 0} students, ${result.stats.grades ?? 0} grades, and ${result.stats.files ?? 0} documents!`
       );
       setPendingRestoreJson(null);
       setIsConfirmRestoreOpen(false);
@@ -121,13 +141,63 @@ export function SettingsPage() {
     }
   };
 
+  const handleUpdatePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError("");
+    setPassSuccess("");
+
+    if (!currentPass.trim()) {
+      setPassError("Please enter your current master password.");
+      return;
+    }
+
+    if (!securityService.verifyPassword(currentPass)) {
+      setPassError("Incorrect current master password.");
+      return;
+    }
+
+    if (!newPass.trim()) {
+      setPassError("New password cannot be blank.");
+      return;
+    }
+
+    if (newPass.trim().length < 3) {
+      setPassError("New password must be at least 3 characters long.");
+      return;
+    }
+
+    if (newPass !== confirmPass) {
+      setPassError("New passwords do not match.");
+      return;
+    }
+
+    securityService.setMasterPassword(newPass);
+    setCurrentPass("");
+    setNewPass("");
+    setConfirmPass("");
+    setHasCustomPass(securityService.hasCustomPassword());
+    setPassSuccess("Master deletion password updated successfully!");
+  };
+
+  const handleResetPassword = () => {
+    if (confirm("Reset master password back to default ('admin')?")) {
+      securityService.resetToDefault();
+      setCurrentPass("");
+      setNewPass("");
+      setConfirmPass("");
+      setPassError("");
+      setHasCustomPass(false);
+      setPassSuccess("Master deletion password has been reset to 'admin'.");
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
       {/* Top Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">System Settings & Backup</h1>
+        <h1 className="text-2xl font-bold tracking-tight">System Settings & Security</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Manage local IndexedDB storage, export 7-day backups, and configure display theme.
+          Manage local IndexedDB storage, export 7-day backups, configure master deletion password, and display theme.
         </p>
       </div>
 
@@ -196,6 +266,112 @@ export function SettingsPage() {
               <span className="text-xs">System Match</span>
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Security & Master Deletion Password Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lock className="w-4 h-4 text-indigo-500" />
+              Security & Master Deletion Password
+            </CardTitle>
+            <Badge
+              variant={hasCustomPass ? "success" : "secondary"}
+              className="text-[11px] gap-1"
+            >
+              <Key className="w-3 h-3" />
+              {hasCustomPass ? "Custom Password Active" : "Default Password Active ('admin')"}
+            </Badge>
+          </div>
+          <CardDescription>
+            Every delete button across classes, students, marks, homework, detentions, notes, and files requires entering this master password to prevent accidental or unauthorized data loss.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {passSuccess && (
+            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{passSuccess}</span>
+            </div>
+          )}
+
+          {passError && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{passError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdatePassword} className="space-y-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="relative">
+                <Input
+                  label="Current Password"
+                  type={showCurrentPass ? "text" : "password"}
+                  placeholder={hasCustomPass ? "Current password..." : "Default: admin"}
+                  value={currentPass}
+                  onChange={(e) => setCurrentPass(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPass(!showCurrentPass)}
+                  className="absolute right-3 top-8 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              <div className="relative">
+                <Input
+                  label="New Master Password"
+                  type={showNewPass ? "text" : "password"}
+                  placeholder="New password or PIN..."
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPass(!showNewPass)}
+                  className="absolute right-3 top-8 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              <Input
+                label="Confirm New Password"
+                type="password"
+                placeholder="Repeat new password..."
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <Button type="submit" size="sm" className="gap-1.5 text-xs">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Save New Password</span>
+              </Button>
+
+              {hasCustomPass && (
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="text-xs text-muted-foreground hover:text-destructive underline transition-colors"
+                >
+                  Reset to default ('admin')
+                </button>
+              )}
+            </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -366,6 +542,8 @@ export function SettingsPage() {
         message="Restoring from a backup will completely replace all existing records, students, grades, homework, detentions, and uploaded documents in your database with the backup data. This cannot be undone."
         confirmText="Confirm & Restore Everything"
         isLoading={isRestoring}
+        variant="destructive"
+        requirePassword={true}
       />
     </div>
   );
