@@ -30,6 +30,7 @@ import {
   Eye,
   EyeOff,
   CalendarRange,
+  RefreshCcw,
 } from "lucide-react";
 
 export function SettingsPage() {
@@ -50,6 +51,7 @@ export function SettingsPage() {
   const [isAcademicYearModalOpen, setIsAcademicYearModalOpen] = useState(false);
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null);
   const [inspectionResult, setInspectionResult] = useState<BackupInspectionResult | null>(null);
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
 
   const academicYearSetting = useLiveQuery(
     () => db.settings.get(SETTING_KEYS.ACADEMIC_YEAR),
@@ -87,6 +89,9 @@ export function SettingsPage() {
     const reminder = await settingsRepository.checkBackupReminder();
     setReminderInfo(reminder);
     setHasCustomPass(securityService.hasCustomPassword());
+    
+    const autoBackup = await settingsRepository.getAutoBackupEnabled();
+    setAutoBackupEnabled(autoBackup);
   };
 
   useEffect(() => {
@@ -160,6 +165,13 @@ export function SettingsPage() {
     } finally {
       setIsReseeding(false);
     }
+  };
+
+  const handleToggleAutoBackup = async () => {
+    const newValue = !autoBackupEnabled;
+    await settingsRepository.setAutoBackupEnabled(newValue);
+    setAutoBackupEnabled(newValue);
+    setStatusMessage(`Automated weekly backups are now ${newValue ? 'ENABLED' : 'DISABLED'}.`);
   };
 
   const handleUpdatePassword = (e: React.FormEvent) => {
@@ -493,6 +505,15 @@ export function SettingsPage() {
                 className="hidden"
               />
             </label>
+
+            <Button
+              onClick={handleToggleAutoBackup}
+              variant={autoBackupEnabled ? "default" : "outline"}
+              className={`gap-2 ${autoBackupEnabled ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+            >
+              <RefreshCcw className={`w-4 h-4 ${autoBackupEnabled ? "animate-spin-slow" : ""}`} />
+              <span>Auto-Backup (Weekly): {autoBackupEnabled ? "ON" : "OFF"}</span>
+            </Button>
           </div>
         </CardContent>
       </Card>

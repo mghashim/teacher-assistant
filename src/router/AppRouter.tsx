@@ -9,6 +9,7 @@ import { StudentProfilePage } from "@/features/students/StudentProfilePage";
 import { GradesPage } from "@/features/grades/GradesPage";
 import { TasksPage } from "@/features/tasks/TasksPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { UserManualPage } from "@/features/manual/UserManualPage";
 
 export const router = createHashRouter([
   {
@@ -54,6 +55,10 @@ export const router = createHashRouter([
       {
         path: "settings",
         element: <SettingsPage />,
+      },
+      {
+        path: "manual",
+        element: <UserManualPage />,
       },
       {
         path: "*",

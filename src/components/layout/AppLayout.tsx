@@ -9,6 +9,8 @@ import { TabletInstallBanner } from "./TabletInstallBanner";
 import { QuickActionModal, type QuickActionType } from "./QuickActionModal";
 import { seedDatabaseIfEmpty } from "@/db/seed";
 import { notificationService } from "@/services/notification.service";
+import { StorageGuard } from "./StorageGuard";
+import { AutoBackupManager } from "./AutoBackupManager";
 
 // Modals for Quick Actions
 import { StudentModal } from "@/features/students/StudentModal";
@@ -127,6 +129,8 @@ export function AppLayout() {
         )}
 
         <BackupReminderBanner />
+        <StorageGuard />
+        <AutoBackupManager />
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8 touch-pan-y overscroll-y-auto">
           <div className="max-w-7xl mx-auto pb-12">

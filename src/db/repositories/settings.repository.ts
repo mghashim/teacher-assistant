@@ -8,6 +8,7 @@ export const SETTING_KEYS = {
   TEACHER_NAME: "teacher_name",
   SCHOOL_NAME: "school_name",
   ACADEMIC_YEAR: "academic_year_config",
+  AUTO_BACKUP: "auto_backup_enabled",
 } as const;
 
 export const DEFAULT_ACADEMIC_YEAR: AcademicYearConfig = {
@@ -102,6 +103,14 @@ export const settingsRepository = {
 
   async setAcademicYearConfig(config: AcademicYearConfig): Promise<void> {
     return this.set(SETTING_KEYS.ACADEMIC_YEAR, config);
+  },
+
+  async getAutoBackupEnabled(): Promise<boolean> {
+    return this.get<boolean>(SETTING_KEYS.AUTO_BACKUP, false);
+  },
+
+  async setAutoBackupEnabled(enabled: boolean): Promise<void> {
+    return this.set(SETTING_KEYS.AUTO_BACKUP, enabled);
   },
 
   /**

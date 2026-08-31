@@ -9,6 +9,7 @@ import {
   Settings,
   Sparkles,
   ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Students", href: "/students", icon: Users },
   { name: "Assessments & Grades", href: "/grades", icon: Award },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
+  { name: "User Manual", href: "/manual", icon: BookOpen },
   { name: "Settings & Backup", href: "/settings", icon: Settings },
 ];
 
