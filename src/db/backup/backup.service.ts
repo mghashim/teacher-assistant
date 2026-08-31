@@ -1,5 +1,6 @@
 import { db } from "../database";
 import { settingsRepository } from "../repositories/settings.repository";
+import { formatDateTime } from "@/lib/utils";
 import type {
   BackupPayload,
   SerializedStoredFile,
@@ -47,9 +48,30 @@ export function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob(byteArrays as BlobPart[], { type: mimeType });
 }
 
+export interface NewerLocalDataStats {
+  classes: number;
+  students: number;
+  grades: number;
+  homework: number;
+  detentions: number;
+  notes: number;
+  tasks: number;
+  files: number;
+}
+
+export interface BackupInspectionResult {
+  backupDate: string;
+  backupDateFormatted: string;
+  totalBackupRecords: number;
+  hasNewerLocalData: boolean;
+  totalNewerLocalRecords: number;
+  newerBreakdown: NewerLocalDataStats;
+}
+
 export const backupService = {
   /**
-   * Generates a complete JSON backup object with binary files converted to Base64
+   * Generates a complete JSON backup object with binary files converted to Base64.
+   * This operation is strictly read-only on all data tables.
    */
   async generateBackup(): Promise<BackupPayload> {
     const [
@@ -120,7 +142,7 @@ export const backupService = {
   },
 
   /**
-   * Export database and trigger a local file download
+   * Export database and trigger a local file download without altering any existing data.
    */
   async exportAndDownloadBackup(): Promise<void> {
     const payload = await this.generateBackup();
@@ -140,6 +162,86 @@ export const backupService = {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 100);
+  },
+
+  /**
+   * Inspects a candidate backup file against the active IndexedDB database
+   * to determine if any local data was created or edited after the backup's export timestamp.
+   */
+  async inspectBackup(jsonString: string): Promise<BackupInspectionResult> {
+    let payload: BackupPayload;
+    try {
+      payload = JSON.parse(jsonString) as BackupPayload;
+    } catch {
+      throw new Error("Invalid backup file: Not valid JSON format.");
+    }
+
+    if (!payload.data || !Array.isArray(payload.data.classes)) {
+      throw new Error("Invalid backup structure: Missing required table data.");
+    }
+
+    const backupDate = payload.exportedAt || new Date().toISOString();
+    const backupDateFormatted = formatDateTime(backupDate);
+
+    const [
+      classes,
+      students,
+      grades,
+      homework,
+      detentions,
+      notes,
+      tasks,
+      files,
+    ] = await Promise.all([
+      db.classes.toArray(),
+      db.students.toArray(),
+      db.grades.toArray(),
+      db.homework.toArray(),
+      db.detentions.toArray(),
+      db.notes.toArray(),
+      db.tasks.toArray(),
+      db.files.toArray(),
+    ]);
+
+    const isNewer = (item: { createdAt?: string; updatedAt?: string }) => {
+      const date = item.updatedAt || item.createdAt;
+      return Boolean(date && date > backupDate);
+    };
+
+    const newerBreakdown: NewerLocalDataStats = {
+      classes: classes.filter(isNewer).length,
+      students: students.filter(isNewer).length,
+      grades: grades.filter(isNewer).length,
+      homework: homework.filter(isNewer).length,
+      detentions: detentions.filter(isNewer).length,
+      notes: notes.filter(isNewer).length,
+      tasks: tasks.filter(isNewer).length,
+      files: files.filter(isNewer).length,
+    };
+
+    const totalNewerLocalRecords = Object.values(newerBreakdown).reduce(
+      (a, b) => a + b,
+      0
+    );
+
+    const totalBackupRecords =
+      (payload.data.classes?.length || 0) +
+      (payload.data.students?.length || 0) +
+      (payload.data.grades?.length || 0) +
+      (payload.data.homework?.length || 0) +
+      (payload.data.detentions?.length || 0) +
+      (payload.data.notes?.length || 0) +
+      (payload.data.tasks?.length || 0) +
+      (payload.data.files?.length || 0);
+
+    return {
+      backupDate,
+      backupDateFormatted,
+      totalBackupRecords,
+      hasNewerLocalData: totalNewerLocalRecords > 0,
+      totalNewerLocalRecords,
+      newerBreakdown,
+    };
   },
 
   /**

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/database";
-import { backupService } from "@/db/backup/backup.service";
+import { backupService, type BackupInspectionResult } from "@/db/backup/backup.service";
 import { settingsRepository } from "@/db/repositories/settings.repository";
 import { seedDatabase } from "@/db/seed";
 import { securityService } from "@/services/security.service";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+import { RestoreInspectionModal } from "./RestoreInspectionModal";
 import { formatDateTime } from "@/lib/utils";
 import {
   Moon,
@@ -45,6 +45,7 @@ export function SettingsPage() {
   const [isReseeding, setIsReseeding] = useState(false);
   const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = useState(false);
   const [pendingRestoreJson, setPendingRestoreJson] = useState<string | null>(null);
+  const [inspectionResult, setInspectionResult] = useState<BackupInspectionResult | null>(null);
 
   // Security / Password State
   const [hasCustomPass, setHasCustomPass] = useState(false);
@@ -84,7 +85,7 @@ export function SettingsPage() {
     try {
       await backupService.exportAndDownloadBackup();
       await refreshBackupState();
-      setStatusMessage("Backup downloaded successfully to your local machine!");
+      setStatusMessage("Backup downloaded successfully to your local machine! All current data is safely preserved.");
     } catch (err) {
       alert("Export failed: " + (err as Error).message);
     } finally {
@@ -97,11 +98,17 @@ export function SettingsPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const content = evt.target?.result as string;
       if (content) {
-        setPendingRestoreJson(content);
-        setIsConfirmRestoreOpen(true);
+        try {
+          const inspection = await backupService.inspectBackup(content);
+          setInspectionResult(inspection);
+          setPendingRestoreJson(content);
+          setIsConfirmRestoreOpen(true);
+        } catch (err) {
+          alert("Invalid backup file: " + (err as Error).message);
+        }
       }
     };
     reader.readAsText(file);
@@ -117,6 +124,7 @@ export function SettingsPage() {
         `Successfully restored ${result.stats.classes ?? 0} classes, ${result.stats.students ?? 0} students, ${result.stats.grades ?? 0} grades, and ${result.stats.files ?? 0} documents!`
       );
       setPendingRestoreJson(null);
+      setInspectionResult(null);
       setIsConfirmRestoreOpen(false);
       await refreshBackupState();
     } catch (err) {
@@ -394,7 +402,7 @@ export function SettingsPage() {
             )}
           </div>
           <CardDescription>
-            Export all student marks, timetable records, and documents into a portable JSON backup. Files stored natively as Blobs are converted safely during export.
+            Export all student marks, timetable records, and documents into a portable JSON backup. Downloading a backup never clears or deletes your database data.
           </CardDescription>
         </CardHeader>
 
@@ -418,7 +426,7 @@ export function SettingsPage() {
 
             <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background hover:bg-accent text-foreground text-sm font-medium transition-colors cursor-pointer">
               <Upload className="w-4 h-4" />
-              <span>{isRestoring ? "Restoring..." : "Restore From Backup File"}</span>
+              <span>{isRestoring ? "Inspecting & Restoring..." : "Restore From Backup File"}</span>
               <input
                 type="file"
                 accept=".json"
@@ -533,17 +541,18 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Restore Confirmation Modal */}
-      <ConfirmationModal
+      {/* Restore Inspection & Safety Modal */}
+      <RestoreInspectionModal
         isOpen={isConfirmRestoreOpen}
-        onClose={() => setIsConfirmRestoreOpen(false)}
-        onConfirm={handleConfirmRestore}
-        title="Restore Backup and Overwrite Existing Data?"
-        message="Restoring from a backup will completely replace all existing records, students, grades, homework, detentions, and uploaded documents in your database with the backup data. This cannot be undone."
-        confirmText="Confirm & Restore Everything"
+        onClose={() => {
+          setIsConfirmRestoreOpen(false);
+          setPendingRestoreJson(null);
+          setInspectionResult(null);
+        }}
+        onConfirmRestore={handleConfirmRestore}
+        onExportCurrentBackup={handleExportBackup}
+        inspection={inspectionResult}
         isLoading={isRestoring}
-        variant="destructive"
-        requirePassword={true}
       />
     </div>
   );
