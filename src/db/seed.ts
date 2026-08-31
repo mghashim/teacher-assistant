@@ -8,6 +8,7 @@ import type {
   Homework,
   Detention,
   TeacherNote,
+  Intervention,
   Task,
   StoredFile,
 } from "@/types/database";
@@ -382,7 +383,36 @@ export async function seedDatabase(): Promise<void> {
   ];
   await db.notes.bulkAdd(notesList as TeacherNote[]);
 
-  // 9. Tasks
+  // 9. Interventions
+  const interventionsList: Array<Omit<Intervention, "id">> = [
+    {
+      studentId: student3Id,
+      classId: class1Id,
+      date: "2026-09-18",
+      startTime: "15:15",
+      endTime: "15:45",
+      type: "after-school",
+      comment: "1-on-1 grammar drill on past tense verb conjugations. Adam showed great improvement on the final 5 quiz sentences.",
+      effectiveness: 4,
+      createdAt: isoNow,
+      updatedAt: isoNow,
+    },
+    {
+      studentId: student2Id,
+      classId: class1Id,
+      date: "2026-09-24",
+      startTime: "12:15",
+      endTime: "12:35",
+      type: "break-time",
+      comment: "Quick review of speaking mock rubric and pronunciation check for upcoming presentation.",
+      effectiveness: 5,
+      createdAt: isoNow,
+      updatedAt: isoNow,
+    },
+  ];
+  await db.interventions.bulkAdd(interventionsList as Intervention[]);
+
+  // 10. Tasks
   const tasksList: Array<Omit<Task, "id">> = [
     {
       title: "Print speaking assessment mark sheets for Year 10",

@@ -14,6 +14,7 @@ import { PersonalTab } from "./tabs/PersonalTab";
 import { GradesTab } from "./tabs/GradesTab";
 import { HomeworkTab } from "./tabs/HomeworkTab";
 import { DetentionsTab } from "./tabs/DetentionsTab";
+import { InterventionsTab } from "./tabs/InterventionsTab";
 import { NotesTab } from "./tabs/NotesTab";
 import { FilesTab } from "./tabs/FilesTab";
 
@@ -23,6 +24,7 @@ import {
   Award,
   FileCheck,
   AlertTriangle,
+  Sparkles,
   FileText,
   FolderOpen,
   Edit2,
@@ -47,6 +49,10 @@ export function StudentProfilePage() {
   );
   const detentionsCount = useLiveQuery(
     () => db.detentions.where("studentId").equals(studentId).count(),
+    [studentId]
+  );
+  const interventionsCount = useLiveQuery(
+    () => db.interventions.where("studentId").equals(studentId).count(),
     [studentId]
   );
   const homeworkCount = useLiveQuery(
@@ -99,6 +105,12 @@ export function StudentProfilePage() {
       label: "Homework",
       icon: FileCheck,
       badge: homeworkCount ?? 0,
+    },
+    {
+      id: "interventions",
+      label: "Interventions",
+      icon: Sparkles,
+      badge: interventionsCount ?? 0,
     },
     {
       id: "detentions",
@@ -210,6 +222,7 @@ export function StudentProfilePage() {
         {activeTab === "personal" && <PersonalTab student={student} />}
         {activeTab === "grades" && <GradesTab student={student} />}
         {activeTab === "homework" && <HomeworkTab student={student} />}
+        {activeTab === "interventions" && <InterventionsTab student={student} />}
         {activeTab === "detentions" && <DetentionsTab student={student} />}
         {activeTab === "notes" && <NotesTab student={student} />}
         {activeTab === "files" && <FilesTab student={student} />}

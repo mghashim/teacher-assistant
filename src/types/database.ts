@@ -200,6 +200,27 @@ export interface AppSetting<T = unknown> {
   value: T;
 }
 
+export type InterventionType =
+  | "1-to-1"
+  | "after-school"
+  | "break-time"
+  | "other"
+  | string;
+
+export interface Intervention {
+  id?: number;
+  studentId: number;
+  classId?: number;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm e.g. "09:00"
+  endTime: string;   // HH:mm e.g. "09:30"
+  type: InterventionType;
+  comment: string;
+  effectiveness: number; // 1 to 5 stars
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Serialized file representation during JSON export
  */
@@ -227,8 +248,10 @@ export interface BackupPayload {
     homework: Homework[];
     detentions: Detention[];
     notes: TeacherNote[];
+    interventions?: Intervention[];
     tasks: Task[];
     settings: AppSetting[];
     files: SerializedStoredFile[];
   };
 }
+

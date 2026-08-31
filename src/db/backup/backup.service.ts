@@ -55,6 +55,7 @@ export interface NewerLocalDataStats {
   homework: number;
   detentions: number;
   notes: number;
+  interventions: number;
   tasks: number;
   files: number;
 }
@@ -83,6 +84,7 @@ export const backupService = {
       homework,
       detentions,
       notes,
+      interventions,
       tasks,
       settings,
       files,
@@ -95,6 +97,7 @@ export const backupService = {
       db.homework.toArray(),
       db.detentions.toArray(),
       db.notes.toArray(),
+      db.interventions.toArray(),
       db.tasks.toArray(),
       db.settings.toArray(),
       db.files.toArray(),
@@ -129,6 +132,7 @@ export const backupService = {
         homework,
         detentions,
         notes,
+        interventions,
         tasks,
         settings,
         files: serializedFiles,
@@ -190,6 +194,7 @@ export const backupService = {
       homework,
       detentions,
       notes,
+      interventions,
       tasks,
       files,
     ] = await Promise.all([
@@ -199,6 +204,7 @@ export const backupService = {
       db.homework.toArray(),
       db.detentions.toArray(),
       db.notes.toArray(),
+      db.interventions.toArray(),
       db.tasks.toArray(),
       db.files.toArray(),
     ]);
@@ -215,6 +221,7 @@ export const backupService = {
       homework: homework.filter(isNewer).length,
       detentions: detentions.filter(isNewer).length,
       notes: notes.filter(isNewer).length,
+      interventions: interventions.filter(isNewer).length,
       tasks: tasks.filter(isNewer).length,
       files: files.filter(isNewer).length,
     };
@@ -231,6 +238,7 @@ export const backupService = {
       (payload.data.homework?.length || 0) +
       (payload.data.detentions?.length || 0) +
       (payload.data.notes?.length || 0) +
+      (payload.data.interventions?.length || 0) +
       (payload.data.tasks?.length || 0) +
       (payload.data.files?.length || 0);
 
@@ -272,6 +280,7 @@ export const backupService = {
       homework = [],
       detentions = [],
       notes = [],
+      interventions = [],
       tasks = [],
       settings = [],
       files = [],
@@ -301,6 +310,7 @@ export const backupService = {
         db.homework,
         db.detentions,
         db.notes,
+        db.interventions,
         db.tasks,
         db.settings,
         db.files,
@@ -316,6 +326,7 @@ export const backupService = {
           db.homework.clear(),
           db.detentions.clear(),
           db.notes.clear(),
+          db.interventions.clear(),
           db.tasks.clear(),
           db.settings.clear(),
           db.files.clear(),
@@ -330,6 +341,7 @@ export const backupService = {
         if (homework.length > 0) await db.homework.bulkAdd(homework);
         if (detentions.length > 0) await db.detentions.bulkAdd(detentions);
         if (notes.length > 0) await db.notes.bulkAdd(notes);
+        if (interventions.length > 0) await db.interventions.bulkAdd(interventions);
         if (tasks.length > 0) await db.tasks.bulkAdd(tasks);
         if (settings.length > 0) await db.settings.bulkAdd(settings);
         if (restoredFiles.length > 0) await db.files.bulkAdd(restoredFiles);
@@ -349,6 +361,7 @@ export const backupService = {
         homework: homework.length,
         detentions: detentions.length,
         notes: notes.length,
+        interventions: interventions.length,
         tasks: tasks.length,
         files: restoredFiles.length,
       },

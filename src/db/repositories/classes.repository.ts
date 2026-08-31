@@ -46,6 +46,7 @@ export const classesRepository = {
         db.homework,
         db.detentions,
         db.notes,
+        db.interventions,
         db.files,
         db.tasks,
       ],
@@ -67,13 +68,15 @@ export const classesRepository = {
           await db.homework.where("studentId").anyOf(studentIds).delete();
           await db.detentions.where("studentId").anyOf(studentIds).delete();
           await db.notes.where("studentId").anyOf(studentIds).delete();
+          await db.interventions.where("studentId").anyOf(studentIds).delete();
           await db.files.where("studentId").anyOf(studentIds).delete();
           await db.tasks.where("studentId").anyOf(studentIds).delete();
         }
 
-        // 4. Delete homework & detentions assigned to the class directly
+        // 4. Delete homework, detentions & interventions assigned to the class directly
         await db.homework.where("classId").equals(id).delete();
         await db.detentions.where("classId").equals(id).delete();
+        await db.interventions.where("classId").equals(id).delete();
 
         // 5. Delete class-level schedules, assessments, files, tasks, and students
         await db.classSchedules.where("classId").equals(id).delete();

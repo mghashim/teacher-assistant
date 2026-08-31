@@ -61,7 +61,7 @@ export const studentsRepository = {
 
   /**
    * Cascade delete a single student and all associated records:
-   * grades, homework, detentions, teacher notes, stored files, and tasks.
+   * grades, homework, detentions, teacher notes, interventions, stored files, and tasks.
    */
   async deleteCascade(id: number): Promise<void> {
     await db.transaction(
@@ -72,6 +72,7 @@ export const studentsRepository = {
         db.homework,
         db.detentions,
         db.notes,
+        db.interventions,
         db.files,
         db.tasks,
       ],
@@ -80,6 +81,7 @@ export const studentsRepository = {
         await db.homework.where("studentId").equals(id).delete();
         await db.detentions.where("studentId").equals(id).delete();
         await db.notes.where("studentId").equals(id).delete();
+        await db.interventions.where("studentId").equals(id).delete();
         await db.files.where("studentId").equals(id).delete();
         await db.tasks.where("studentId").equals(id).delete();
         await db.students.delete(id);
@@ -87,3 +89,4 @@ export const studentsRepository = {
     );
   },
 };
+

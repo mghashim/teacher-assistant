@@ -8,6 +8,7 @@ import type {
   Homework,
   Detention,
   TeacherNote,
+  Intervention,
   StoredFile,
   Task,
   AppSetting,
@@ -22,6 +23,7 @@ export class TeacherAssistantDB extends Dexie {
   homework!: Table<Homework, number>;
   detentions!: Table<Detention, number>;
   notes!: Table<TeacherNote, number>;
+  interventions!: Table<Intervention, number>;
   files!: Table<StoredFile, number>;
   tasks!: Table<Task, number>;
   settings!: Table<AppSetting, string>;
@@ -42,6 +44,11 @@ export class TeacherAssistantDB extends Dexie {
       files: "++id, classId, studentId, name, mimeType, createdAt",
       tasks: "++id, classId, studentId, dueDate, completed, [completed+dueDate], createdAt",
       settings: "key",
+    });
+
+    // Version 2: Add interventions table
+    this.version(2).stores({
+      interventions: "++id, studentId, classId, date, type, effectiveness, [studentId+date], createdAt",
     });
   }
 }
