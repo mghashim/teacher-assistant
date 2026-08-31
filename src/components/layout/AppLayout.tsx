@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Outlet } from "react-router-dom";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/db/database";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { BackupReminderBanner } from "./BackupReminderBanner";
 import { TabletInstallBanner } from "./TabletInstallBanner";
 import { QuickActionModal, type QuickActionType } from "./QuickActionModal";
 import { seedDatabaseIfEmpty } from "@/db/seed";
+import { notificationService } from "@/services/notification.service";
 
 // Modals for Quick Actions
 import { StudentModal } from "@/features/students/StudentModal";
@@ -16,18 +19,55 @@ import { DetentionModal } from "@/features/students/tabs/DetentionModal";
 import { TaskModal } from "@/features/tasks/TaskModal";
 import { EnterMarksPickerModal } from "@/features/grades/EnterMarksPickerModal";
 import { GradeEntryModal } from "@/features/grades/GradeEntryModal";
-import type { Assessment } from "@/types/database";
+import { BellRing, X } from "lucide-react";
+import type { Assessment, TeacherClass } from "@/types/database";
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickActionOpen, setQuickActionOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<QuickActionType | null>(null);
   const [selectedGradeEntryAssessment, setSelectedGradeEntryAssessment] = useState<Assessment | null>(null);
+  const [activeReminderToast, setActiveReminderToast] = useState<{
+    className: string;
+    minutesLeft: number;
+    room?: string;
+  } | null>(null);
+
+  // Live queries for timetable reminders
+  const schedules = useLiveQuery(() => db.classSchedules.toArray(), []);
+  const classes = useLiveQuery(() => db.classes.toArray(), []);
+
+  const classesMap = useMemo(() => {
+    const map = new Map<number, TeacherClass>();
+    classes?.forEach((c) => {
+      if (c.id) map.set(c.id, c);
+    });
+    return map;
+  }, [classes]);
 
   // Ensure mock data or database setup is verified on initial mount
   useEffect(() => {
     seedDatabaseIfEmpty();
   }, []);
+
+  // Background timer checking for lesson reminders every 30 seconds
+  useEffect(() => {
+    if (!schedules || !classesMap) return;
+
+    const checkReminders = () => {
+      notificationService.checkUpcomingLessons(
+        schedules,
+        classesMap,
+        (className, minutesLeft, room) => {
+          setActiveReminderToast({ className, minutesLeft, room });
+        }
+      );
+    };
+
+    checkReminders();
+    const interval = setInterval(checkReminders, 30000);
+    return () => clearInterval(interval);
+  }, [schedules, classesMap]);
 
   const handleSelectQuickAction = (action: QuickActionType) => {
     setActiveModal(action);
@@ -52,6 +92,30 @@ export function AppLayout() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenQuickAction={() => setQuickActionOpen(true)}
         />
+
+        {/* Top Active Lesson Reminder Toast Banner */}
+        {activeReminderToast && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2.5 flex items-center justify-between text-xs font-semibold shadow-sm animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <BellRing className="w-4 h-4 text-amber-950 animate-bounce" />
+              <span>
+                🔔 <strong>Upcoming Lesson:</strong> {activeReminderToast.className}{" "}
+                {activeReminderToast.room ? `(${activeReminderToast.room})` : ""}{" "}
+                {activeReminderToast.minutesLeft === 0
+                  ? "is starting right NOW!"
+                  : `starts in ${activeReminderToast.minutesLeft} minute${activeReminderToast.minutesLeft === 1 ? "" : "s"}!`}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setActiveReminderToast(null)}
+              className="p-1 rounded hover:bg-amber-600/30 transition-colors"
+              title="Dismiss reminder"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <BackupReminderBanner />
 
