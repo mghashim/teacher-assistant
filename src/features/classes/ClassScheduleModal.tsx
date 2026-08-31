@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/db/database";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -20,7 +22,8 @@ const DAYS_OF_WEEK: Array<{ value: DayOfWeek; label: string }> = [
 interface ClassScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  classId: number;
+  classId?: number;
+  defaultDayOfWeek?: DayOfWeek;
   initialData?: ClassSchedule | null;
   onSaved?: () => void;
 }
@@ -29,10 +32,14 @@ export function ClassScheduleModal({
   isOpen,
   onClose,
   classId,
+  defaultDayOfWeek,
   initialData,
   onSaved,
 }: ClassScheduleModalProps) {
-  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>("monday");
+  const classes = useLiveQuery(() => db.classes.orderBy("name").toArray(), []);
+
+  const [selectedClassId, setSelectedClassId] = useState<number>(classId || 0);
+  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(defaultDayOfWeek || "monday");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("09:45");
   const [room, setRoom] = useState("");
@@ -42,20 +49,22 @@ export function ClassScheduleModal({
 
   useEffect(() => {
     if (initialData) {
+      setSelectedClassId(initialData.classId);
       setDayOfWeek(initialData.dayOfWeek);
       setStartTime(initialData.startTime);
       setEndTime(initialData.endTime);
       setRoom(initialData.room || "");
       setNotes(initialData.notes || "");
     } else {
-      setDayOfWeek("monday");
+      setSelectedClassId(classId || (classes && classes.length > 0 ? classes[0].id! : 0));
+      setDayOfWeek(defaultDayOfWeek || "monday");
       setStartTime("09:00");
       setEndTime("09:45");
       setRoom("");
       setNotes("");
     }
     setError("");
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, classId, defaultDayOfWeek, classes]);
 
   const timeError = useMemo(() => {
     if (startTime && endTime && startTime >= endTime) {
@@ -64,8 +73,23 @@ export function ClassScheduleModal({
     return "";
   }, [startTime, endTime]);
 
+  const classOptions = useMemo(() => {
+    if (!classes) return [];
+    return classes.map((c) => ({
+      value: String(c.id),
+      label: `${c.name}${c.subject ? ` (${c.subject})` : ""}`,
+    }));
+  }, [classes]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const targetClassId = classId || selectedClassId;
+
+    if (!targetClassId) {
+      setError("Please select a valid class for this lesson schedule.");
+      return;
+    }
+
     if (!startTime || !endTime) {
       setError("Start time and End time are required.");
       return;
@@ -81,6 +105,7 @@ export function ClassScheduleModal({
     try {
       if (initialData && initialData.id) {
         await schedulesRepository.update(initialData.id, {
+          classId: targetClassId,
           dayOfWeek,
           startTime,
           endTime,
@@ -89,7 +114,7 @@ export function ClassScheduleModal({
         });
       } else {
         await schedulesRepository.create({
-          classId,
+          classId: targetClassId,
           dayOfWeek,
           startTime,
           endTime,
@@ -120,6 +145,16 @@ export function ClassScheduleModal({
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
+        )}
+
+        {!classId && (
+          <Select
+            label="Target Class"
+            value={String(selectedClassId)}
+            onChange={(e) => setSelectedClassId(Number(e.target.value))}
+            options={classOptions}
+            required
+          />
         )}
 
         <Select

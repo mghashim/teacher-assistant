@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
+  Calendar,
   GraduationCap,
   Users,
   Award,
@@ -13,7 +14,8 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Classes & Timetable", href: "/classes", icon: GraduationCap },
+  { name: "My Timetable", href: "/timetable", icon: Calendar },
+  { name: "Classes", href: "/classes", icon: GraduationCap },
   { name: "Students", href: "/students", icon: Users },
   { name: "Assessments & Grades", href: "/grades", icon: Award },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },

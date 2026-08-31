@@ -1,6 +1,7 @@
 import { createHashRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { TimetablePage } from "@/features/timetable/TimetablePage";
 import { ClassesPage } from "@/features/classes/ClassesPage";
 import { ClassDetailPage } from "@/features/classes/ClassDetailPage";
 import { StudentsPage } from "@/features/students/StudentsPage";
@@ -17,6 +18,10 @@ export const router = createHashRouter([
       {
         index: true,
         element: <DashboardPage />,
+      },
+      {
+        path: "timetable",
+        element: <TimetablePage />,
       },
       {
         path: "classes",

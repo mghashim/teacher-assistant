@@ -116,9 +116,9 @@ export function DashboardPage() {
     {
       title: "Today's Lessons",
       value: todaysLessons.length,
-      sub: `${todayDayOfWeek.toUpperCase()}`,
+      sub: `${todayDayOfWeek.toUpperCase()} Schedule`,
       icon: Calendar,
-      href: "/classes",
+      href: "/timetable",
       color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50",
     },
     {
@@ -241,7 +241,7 @@ export function DashboardPage() {
                 </p>
               </div>
               <Link
-                to="/classes"
+                to="/timetable"
                 className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
               >
                 View Full Timetable <ArrowUpRight className="w-3 h-3" />
