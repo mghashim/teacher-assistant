@@ -8,12 +8,30 @@ export function cn(...inputs: ClassValue[]) {
 export function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "—"
   try {
-    const d = new Date(dateStr)
+    const parts = dateStr.split("-")
+    const d = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
     return d.toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
+    })
+  } catch {
+    return dateStr
+  }
+}
+
+export function formatDateWithDay(dateStr?: string | null, fullWeekday = false): string {
+  if (!dateStr) return "—"
+  try {
+    const parts = dateStr.split("-")
+    const d = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return d.toLocaleDateString(undefined, {
+      weekday: fullWeekday ? "long" : "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     })
   } catch {
     return dateStr

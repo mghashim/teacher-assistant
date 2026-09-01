@@ -9,6 +9,7 @@ import type {
   Detention,
   TeacherNote,
   Intervention,
+  ClassLesson,
   StoredFile,
   Task,
   AppSetting,
@@ -24,6 +25,7 @@ export class TeacherAssistantDB extends Dexie {
   detentions!: Table<Detention, number>;
   notes!: Table<TeacherNote, number>;
   interventions!: Table<Intervention, number>;
+  lessons!: Table<ClassLesson, number>;
   files!: Table<StoredFile, number>;
   tasks!: Table<Task, number>;
   settings!: Table<AppSetting, string>;
@@ -54,6 +56,11 @@ export class TeacherAssistantDB extends Dexie {
     // Version 3: Multi-class enrollment indexing
     this.version(3).stores({
       students: "++id, classId, *classIds, lastName, firstName, active, createdAt",
+    });
+
+    // Version 4: Class lessons progress map and assignments
+    this.version(4).stores({
+      lessons: "++id, classId, status, lessonDate, orderIndex, [classId+orderIndex], createdAt",
     });
   }
 }

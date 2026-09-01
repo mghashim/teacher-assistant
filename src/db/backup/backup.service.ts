@@ -56,6 +56,7 @@ export interface NewerLocalDataStats {
   detentions: number;
   notes: number;
   interventions: number;
+  lessons: number;
   tasks: number;
   files: number;
 }
@@ -85,6 +86,7 @@ export const backupService = {
       detentions,
       notes,
       interventions,
+      lessons,
       tasks,
       settings,
       files,
@@ -98,6 +100,7 @@ export const backupService = {
       db.detentions.toArray(),
       db.notes.toArray(),
       db.interventions.toArray(),
+      db.lessons.toArray(),
       db.tasks.toArray(),
       db.settings.toArray(),
       db.files.toArray(),
@@ -133,6 +136,7 @@ export const backupService = {
         detentions,
         notes,
         interventions,
+        lessons,
         tasks,
         settings,
         files: serializedFiles,
@@ -195,6 +199,7 @@ export const backupService = {
       detentions,
       notes,
       interventions,
+      lessons,
       tasks,
       files,
     ] = await Promise.all([
@@ -205,6 +210,7 @@ export const backupService = {
       db.detentions.toArray(),
       db.notes.toArray(),
       db.interventions.toArray(),
+      db.lessons.toArray(),
       db.tasks.toArray(),
       db.files.toArray(),
     ]);
@@ -222,6 +228,7 @@ export const backupService = {
       detentions: detentions.filter(isNewer).length,
       notes: notes.filter(isNewer).length,
       interventions: interventions.filter(isNewer).length,
+      lessons: lessons.filter(isNewer).length,
       tasks: tasks.filter(isNewer).length,
       files: files.filter(isNewer).length,
     };
@@ -239,6 +246,7 @@ export const backupService = {
       (payload.data.detentions?.length || 0) +
       (payload.data.notes?.length || 0) +
       (payload.data.interventions?.length || 0) +
+      (payload.data.lessons?.length || 0) +
       (payload.data.tasks?.length || 0) +
       (payload.data.files?.length || 0);
 
@@ -281,6 +289,7 @@ export const backupService = {
       detentions = [],
       notes = [],
       interventions = [],
+      lessons = [],
       tasks = [],
       settings = [],
       files = [],
@@ -311,6 +320,7 @@ export const backupService = {
         db.detentions,
         db.notes,
         db.interventions,
+        db.lessons,
         db.tasks,
         db.settings,
         db.files,
@@ -327,6 +337,7 @@ export const backupService = {
           db.detentions.clear(),
           db.notes.clear(),
           db.interventions.clear(),
+          db.lessons.clear(),
           db.tasks.clear(),
           db.settings.clear(),
           db.files.clear(),
@@ -342,6 +353,7 @@ export const backupService = {
         if (detentions.length > 0) await db.detentions.bulkAdd(detentions);
         if (notes.length > 0) await db.notes.bulkAdd(notes);
         if (interventions.length > 0) await db.interventions.bulkAdd(interventions);
+        if (lessons.length > 0) await db.lessons.bulkAdd(lessons);
         if (tasks.length > 0) await db.tasks.bulkAdd(tasks);
         if (settings.length > 0) await db.settings.bulkAdd(settings);
         if (restoredFiles.length > 0) await db.files.bulkAdd(restoredFiles);
@@ -362,6 +374,7 @@ export const backupService = {
         detentions: detentions.length,
         notes: notes.length,
         interventions: interventions.length,
+        lessons: lessons.length,
         tasks: tasks.length,
         files: restoredFiles.length,
       },

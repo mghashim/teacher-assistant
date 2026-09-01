@@ -18,6 +18,7 @@ import { ClassScheduleModal } from "./ClassScheduleModal";
 import { StudentModal } from "@/features/students/StudentModal";
 import { sortSchedulesByTime } from "@/lib/calculations";
 import { formatDate, formatFileSize } from "@/lib/utils";
+import { LessonsProgressTab } from "./lessons/LessonsProgressTab";
 import {
   ArrowLeft,
   Calendar,
@@ -35,6 +36,7 @@ import {
   UserMinus,
   Search,
   Check,
+  Map,
 } from "lucide-react";
 import type { ClassSchedule, StoredFileMetadata, Student } from "@/types/database";
 
@@ -100,6 +102,10 @@ export function ClassDetailPage() {
     () => db.assessments.where("classId").equals(classId).toArray(),
     [classId]
   );
+  const lessonsCount = useLiveQuery(
+    () => db.lessons.where("classId").equals(classId).count(),
+    [classId]
+  );
 
   if (!teacherClass) {
     return (
@@ -161,7 +167,7 @@ export function ClassDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back button & Class header */}
+      {/* Top Bar Navigation */}
       <div className="space-y-4">
         <Button
           variant="ghost"
@@ -169,12 +175,13 @@ export function ClassDetailPage() {
           onClick={() => navigate("/classes")}
           className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to All Classes
+          <ArrowLeft className="w-4 h-4" /> Back to Classes
         </Button>
 
+        {/* Class Hero Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-card border shadow-sm">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 {teacherClass.name}
               </h1>
@@ -223,6 +230,12 @@ export function ClassDetailPage() {
             label: "Lesson Timetable",
             icon: Calendar,
             badge: sortedSchedules.length,
+          },
+          {
+            id: "lessons",
+            label: "Lessons Progress",
+            icon: Map,
+            badge: lessonsCount ?? 0,
           },
           {
             id: "students",
@@ -324,6 +337,11 @@ export function ClassDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Tab: Lessons Progress Map & Curriculum Roadmap */}
+      {activeTab === "lessons" && (
+        <LessonsProgressTab classId={classId} teacherClass={teacherClass} />
       )}
 
       {/* Tab 2: Enrolled Students */}

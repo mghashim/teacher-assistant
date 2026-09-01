@@ -47,6 +47,7 @@ export const classesRepository = {
         db.detentions,
         db.notes,
         db.interventions,
+        db.lessons,
         db.files,
         db.tasks,
       ],
@@ -106,9 +107,10 @@ export const classesRepository = {
         await db.detentions.where("classId").equals(id).delete();
         await db.interventions.where("classId").equals(id).delete();
 
-        // 5. Delete class-level schedules, assessments, files, and tasks
+        // 5. Delete class-level schedules, assessments, lessons, files, and tasks
         await db.classSchedules.where("classId").equals(id).delete();
         await db.assessments.where("classId").equals(id).delete();
+        await db.lessons.where("classId").equals(id).delete();
         await db.files.where("classId").equals(id).delete();
         await db.tasks.where("classId").equals(id).delete();
 

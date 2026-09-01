@@ -222,6 +222,26 @@ export interface Intervention {
   updatedAt: string;
 }
 
+export type LessonStatus = "planned" | "in_progress" | "completed" | "skipped";
+
+export interface ClassLesson {
+  id?: number;
+  classId: number;
+  lessonNumber?: number;
+  unitOrTopic?: string;
+  title: string;
+  lessonDate?: string; // YYYY-MM-DD
+  status: LessonStatus;
+  assignmentTitle?: string;
+  assignmentDueDate?: string; // YYYY-MM-DD
+  assignmentNotes?: string;
+  learningObjectives?: string;
+  notes?: string;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Serialized file representation during JSON export
  */
@@ -250,6 +270,7 @@ export interface BackupPayload {
     detentions: Detention[];
     notes: TeacherNote[];
     interventions?: Intervention[];
+    lessons?: ClassLesson[];
     tasks: Task[];
     settings: AppSetting[];
     files: SerializedStoredFile[];
